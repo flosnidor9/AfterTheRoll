@@ -10,7 +10,7 @@ export default function CharactersPage() {
     playId: post.playId,
     sessionTitle: post.title,
     date: post.date,
-    href: `/afterTheRoll/archive/read/${toGalleryPath(post.fullSlug)}`,
+    href: `/archive/read/${toGalleryPath(post.fullSlug)}`,
   }));
 
   return <CharactersSection characters={getCharacters()} sessionLogLinks={sessionLogLinks} />;

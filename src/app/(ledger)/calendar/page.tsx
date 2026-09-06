@@ -9,7 +9,7 @@ export default function AfterTheRollCalendarPage() {
   const logLinks = getAllTrpgPosts().map((post) => ({
     calendarEventId: post.calendarEventId,
     playId: post.playId,
-    href: `/afterTheRoll/archive/read/${toGalleryPath(post.fullSlug)}`,
+    href: `/archive/read/${toGalleryPath(post.fullSlug)}`,
   }));
 
   return <CalendarSection logLinks={logLinks} characters={getCharacters()} />;

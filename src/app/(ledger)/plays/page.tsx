@@ -8,7 +8,7 @@ export const dynamic = 'force-static';
 export default function PlaysPage() {
   const logLinks = getAllTrpgPosts().map((post) => ({
     playId: post.playId,
-    href: `/afterTheRoll/archive/read/${toGalleryPath(post.fullSlug)}`,
+    href: `/archive/read/${toGalleryPath(post.fullSlug)}`,
   }));
 
   return (

@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 
 const isProdBuild = process.env.NODE_ENV === "production";
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "/afterTheRoll";
 
 const nextConfig: NextConfig = {
   output: isProdBuild ? "export" : undefined,
+  basePath: isProdBuild && basePath ? basePath : undefined,
   trailingSlash: true,
   images: {
     unoptimized: true,

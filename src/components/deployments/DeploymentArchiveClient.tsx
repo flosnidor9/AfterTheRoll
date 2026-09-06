@@ -36,7 +36,7 @@ export default function DeploymentArchiveClient({
               className="flex items-start gap-[0.6rem] border-b border-[var(--atr-line)]"
             >
               <Link
-                href={`/afterTheRoll/deployments/read/${toGalleryPath(`${post.year}/${post.slug}`)}`}
+                href={`/deployments/read/${toGalleryPath(`${post.year}/${post.slug}`)}`}
                 className="min-w-0 flex-1 py-[0.9rem] transition-colors hover:bg-white/45"
               >
                 <div className="flex flex-wrap items-baseline gap-[0.55rem]">

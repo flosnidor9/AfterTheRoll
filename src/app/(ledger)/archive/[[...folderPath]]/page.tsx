@@ -10,5 +10,5 @@ export async function generateStaticParams() {
 
 export default async function AfterTheRollArchivePage({ params }: Props) {
   await params;
-  redirect('/afterTheRoll');
+  redirect('/');
 }

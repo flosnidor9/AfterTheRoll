@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import '../globals.css';
 import Providers from '@/components/providers/Providers';
+import AfterTheRollShell from '@/components/afterroll/AfterTheRollShell';
 import { OG_IMAGE_URLS, SITE_ORIGIN } from '@/lib/config/site';
 
 const ongleipKonkon = localFont({
@@ -43,7 +44,9 @@ export default function LedgerLayout({
         />
       </head>
       <body className={`${ongleipKonkon.variable} after-roll-theme antialiased`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <AfterTheRollShell>{children}</AfterTheRollShell>
+        </Providers>
       </body>
     </html>
   );

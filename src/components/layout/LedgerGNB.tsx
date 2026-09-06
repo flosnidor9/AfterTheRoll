@@ -6,9 +6,9 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 const NAV_ITEMS = [
-  { label: 'Calendar', href: '/afterTheRoll', exact: true },
-  { label: 'Logs', href: '/afterTheRoll/logs', exact: false },
-  { label: 'Plays', href: '/afterTheRoll/plays', exact: false },
+  { label: 'Calendar', href: '/', exact: true },
+  { label: 'Logs', href: '/logs', exact: false },
+  { label: 'Plays', href: '/plays', exact: false },
 ];
 
 export default function LedgerGNB() {
@@ -19,7 +19,7 @@ export default function LedgerGNB() {
     <nav className="fixed inset-x-0 top-0 z-50 border-b border-[var(--atr-line)] bg-[rgba(2,7,6,0.76)] px-[0.8rem] py-[0.65rem] backdrop-blur-[1rem] md:px-[2rem]">
       <div className="mx-auto flex max-w-[72rem] items-center justify-between gap-[1rem]">
         <Link
-          href="/afterTheRoll"
+          href="/"
           className="afterroll-meta shrink-0 text-[0.72rem] uppercase tracking-[0.18em] text-[var(--atr-accent)]"
         >
           Afterimage Archive
@@ -28,7 +28,7 @@ export default function LedgerGNB() {
         {NAV_ITEMS.map(({ label, href, exact }) => {
           const isActive = exact
             ? pathname === href
-            : pathname === href || pathname.startsWith(`${href}/`) || pathname.startsWith('/afterTheRoll/archive');
+            : pathname === href || pathname.startsWith(`${href}/`) || pathname.startsWith('/archive');
 
           return (
             <li key={href} className="relative">

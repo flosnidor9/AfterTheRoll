@@ -59,7 +59,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function TrpgReadPage({ params }: Props) {
   const postPath = (await params).postPath;
-  if (postPath.join('/') === EMPTY_EXPORT_POST_PATH.join('/')) redirect('/afterTheRoll');
+  if (postPath.join('/') === EMPTY_EXPORT_POST_PATH.join('/')) redirect('/');
 
   const resolved = splitPostPath(postPath);
   if (!resolved) notFound();
@@ -78,7 +78,7 @@ export default async function TrpgReadPage({ params }: Props) {
       <article className="afterroll-read-paper ledger-paper-sheet mx-auto max-w-[72rem] overflow-hidden rounded-[0.45rem]">
         <div className="afterroll-read-header border-b border-[var(--atr-line)] px-[1.2rem] py-[1.1rem] md:px-[1.5rem]">
           <Link
-            href="/afterTheRoll/logs"
+            href="/logs"
             className="ledger-note-card afterroll-note mb-[1rem] inline-flex items-center gap-[0.4rem] rounded-[0.25rem] px-[0.8rem] py-[0.45rem] text-[0.78rem] uppercase text-[var(--ledger-muted)] transition-colors hover:text-[var(--atr-accent)]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
