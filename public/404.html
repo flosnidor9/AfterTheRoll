@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>404</title>
+  <script>
+    (function () {
+      var path = window.location.pathname;
+      var lower = path.toLowerCase();
+      var prefix = "/aftertheroll";
+      if (lower === prefix || lower.startsWith(prefix + "/")) {
+        var rest = path.slice(prefix.length);
+        window.location.replace("/AfterTheRoll" + rest);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <p>페이지를 찾을 수 없습니다.</p>
+</body>
+</html>

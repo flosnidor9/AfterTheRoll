@@ -16,9 +16,11 @@ export const TRPG_PUBLIC_ROOT = process.env.NODE_ENV === 'development'
 export const TRPG_IMAGES_ROOT = path.join(TRPG_PUBLIC_ROOT, 'images');
 export const TRPG_ARCHIVE_ROOT = path.join(TRPG_IMAGES_ROOT, 'afterTheRoll');
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '/AfterTheRoll';
+
 export const TRPG_ASSET_PREFIX = process.env.NODE_ENV === 'development'
   ? '/trpg-logs/images'
-  : '/images';
+  : `${BASE_PATH}/images`;
 
 export function trpgAssetUrl(...segments: string[]) {
   return `${TRPG_ASSET_PREFIX}/${segments.map((segment) => encodeURIComponent(segment)).join('/')}`;
