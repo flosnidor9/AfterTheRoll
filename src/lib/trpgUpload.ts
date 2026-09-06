@@ -1,5 +1,5 @@
 export const TRPG_UPLOAD_REPOSITORY = 'flosnidor9/Trpg-Logs';
-const TRPG_SITE_REPOSITORY = 'flosnidor9/afterTheRoll';
+const TRPG_SITE_REPOSITORY = 'flosnidor9/AfterTheRoll';
 const TRPG_UPLOAD_ROOT = 'public/images/afterTheRoll';
 
 export type TrpgUploadCastEntry = {
