@@ -26,6 +26,7 @@ type LogEntry = {
   isAside: boolean;
   isWhisper: boolean;
   isNarrator?: boolean;
+  preserveLineBreaks?: boolean;
   isRoll20Narration?: boolean;
   kind: 'chat' | 'media';
 };
@@ -116,6 +117,7 @@ function parseCcaEntries(
             isWhisper,
             whisperTo: tabName || undefined,
             isNarrator: true,
+            preserveLineBreaks: true,
             kind: isChatRow ? 'chat' : 'media',
           };
         }
@@ -130,6 +132,7 @@ function parseCcaEntries(
             isAside: isCcaAsideTab(tabName) || row.closest('details') !== null,
             isWhisper,
             whisperTo: tabName || undefined,
+            preserveLineBreaks: true,
             kind: 'chat',
           };
         }
@@ -148,6 +151,7 @@ function parseCcaEntries(
           isAside: isCcaAsideTab(tabName) || row.closest('details') !== null,
           isWhisper,
           whisperTo: tabName || undefined,
+          preserveLineBreaks: true,
           kind: 'chat',
         };
       })
@@ -177,6 +181,7 @@ function parseCcaEntries(
         isWhisper,
         whisperTo: tabName || undefined,
         isNarrator: true,
+        preserveLineBreaks: true,
         kind: isChatRow ? 'chat' : 'media',
       });
       continue;
@@ -194,6 +199,7 @@ function parseCcaEntries(
         isAside,
         isWhisper,
         whisperTo: tabName || undefined,
+        preserveLineBreaks: true,
         kind: 'chat',
       });
       continue;
@@ -215,6 +221,7 @@ function parseCcaEntries(
       isAside,
       isWhisper,
       whisperTo: tabName || undefined,
+      preserveLineBreaks: true,
       kind: 'chat',
     });
   }
@@ -816,7 +823,7 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
             {entry.kind === 'media' ? (
               <div className="relative z-[1] px-[0.05rem] py-[0.05rem] md:px-[0.08rem] md:py-[0.08rem]">
                 <div
-                  className={`trpg-media-bubble overflow-hidden ${entry.isNarrator ? 'trpg-cca-narrator' : ''}`}
+                  className={`trpg-media-bubble overflow-hidden ${entry.isNarrator ? 'trpg-cca-narrator' : ''} ${entry.preserveLineBreaks ? 'trpg-entry-cca-content' : ''}`}
                   dangerouslySetInnerHTML={{ __html: entry.contentHtml }}
                 />
               </div>
@@ -861,7 +868,7 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
                         귓말
                       </p>
                     ) : null}
-                    <div className="trpg-entry-content min-w-0" dangerouslySetInnerHTML={{ __html: entry.contentHtml }} />
+                    <div className={`trpg-entry-content min-w-0 ${entry.preserveLineBreaks ? 'trpg-entry-cca-content' : ''}`} dangerouslySetInnerHTML={{ __html: entry.contentHtml }} />
                   </div>
                 </div>
               </>
@@ -901,6 +908,11 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
 
         .trpg-log-reader .trpg-log-continuation {
           margin-top: 0.1rem !important;
+        }
+
+        /* CCA stores manual line breaks as text-node newlines, which HTML normally collapses. */
+        .trpg-log-reader .trpg-entry-cca-content {
+          white-space: pre-line !important;
         }
 
         .trpg-log-reader .trpg-entry-content,
