@@ -3,7 +3,8 @@ import localFont from 'next/font/local';
 import '../globals.css';
 import Providers from '@/components/providers/Providers';
 import AfterTheRollShell from '@/components/afterroll/AfterTheRollShell';
-import { OG_IMAGE_URLS, SITE_ORIGIN } from '@/lib/config/site';
+import { SITE_ORIGIN } from '@/lib/config/site';
+import { getTendencyOgImageUrl } from '@/lib/config/tendencyOgImage';
 
 const ongleipKonkon = localFont({
   variable: '--font-hand',
@@ -11,21 +12,25 @@ const ongleipKonkon = localFont({
   display: 'swap',
 });
 
-export const metadata: Metadata = {
-  metadataBase: SITE_ORIGIN,
-  title: 'After the Roll | Personal Archive',
-  description: 'A quieter archive for TRPG notes, logs, and after-session records.',
-  openGraph: {
+export async function generateMetadata(): Promise<Metadata> {
+  const ogImage = await getTendencyOgImageUrl();
+
+  return {
+    metadataBase: SITE_ORIGIN,
     title: 'After the Roll | Personal Archive',
     description: 'A quieter archive for TRPG notes, logs, and after-session records.',
-    type: 'website',
-    images: [OG_IMAGE_URLS.afterTheRoll],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    images: [OG_IMAGE_URLS.afterTheRoll],
-  },
-};
+    openGraph: {
+      title: 'After the Roll | Personal Archive',
+      description: 'A quieter archive for TRPG notes, logs, and after-session records.',
+      type: 'website',
+      images: [ogImage],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      images: [ogImage],
+    },
+  };
+}
 
 export default function LedgerLayout({
   children,
