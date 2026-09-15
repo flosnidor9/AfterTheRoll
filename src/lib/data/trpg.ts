@@ -6,6 +6,7 @@ import { getAllFolderSlugs } from '@/lib/data/folders';
 import { TRPG_ARCHIVE_ROOT, TRPG_ASSET_PREFIX, TRPG_PUBLIC_ROOT } from '@/lib/trpgSource';
 
 const TRPG_ROOT = TRPG_ARCHIVE_ROOT;
+const DATE_TOKEN_PATTERN = /\d{4}[.-]\d{2}[.-]\d{2}/g;
 
 export type TrpgCastEntry = {
   plName: string;
@@ -68,6 +69,12 @@ function ensureArray(value: unknown): string[] {
 
 function ensureString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
+}
+
+function getLogEndDate(date: string): string {
+  const dateTokens = date.match(DATE_TOKEN_PATTERN);
+  const lastDate = dateTokens?.at(-1);
+  return lastDate?.replaceAll('.', '-') ?? date;
 }
 
 function ensureCast(value: unknown): TrpgCastEntry[] {
@@ -143,7 +150,7 @@ export function getTrpgPosts(folderSlug: string): TrpgPostMeta[] {
     .map((entry) => parsePostMeta(folderSlug, entry.name))
     .filter((post): post is TrpgPostMeta => Boolean(post))
     .sort((a, b) => {
-      const dateCompare = b.date.localeCompare(a.date, 'ko');
+      const dateCompare = getLogEndDate(b.date).localeCompare(getLogEndDate(a.date), 'ko');
       return dateCompare || a.title.localeCompare(b.title, 'ko');
     });
 }
@@ -276,7 +283,7 @@ export function getAllTrpgPosts(): TrpgArchivePostMeta[] {
       }));
     })
     .sort((a, b) => {
-      const dateCompare = b.date.localeCompare(a.date, 'ko');
+      const dateCompare = getLogEndDate(b.date).localeCompare(getLogEndDate(a.date), 'ko');
       return dateCompare || a.title.localeCompare(b.title, 'ko');
     });
 }

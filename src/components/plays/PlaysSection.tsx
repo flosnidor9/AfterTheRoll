@@ -163,8 +163,13 @@ function formatSessionTime(session: PlaySession): string {
 }
 
 function getEntryDates(entry: PlayEntry, fallback: TitleDates | undefined): TitleDates | null {
-  if (entry.startDate) return { startDate: entry.startDate, endDate: entry.endDate ?? null };
-  return fallback ?? null;
+  const startDate = entry.startDate || fallback?.startDate;
+  if (!startDate) return null;
+
+  return {
+    startDate,
+    endDate: entry.endDate ?? fallback?.endDate ?? null,
+  };
 }
 
 function getDisplayedParticipants(entry: PlayEntry): string[] {
@@ -275,13 +280,6 @@ const STATUS_LABEL: Record<PlayEntry['status'], string> = {
   completed: '완주',
   ongoing: '진행',
   dropped: '하차',
-};
-
-const STATUS_PRIORITY: Record<PlayEntry['status'], number> = {
-  scheduled: 0,
-  ongoing: 1,
-  completed: 2,
-  dropped: 3,
 };
 
 const STATUS_STYLE: Record<PlayEntry['status'], string> = {
@@ -489,13 +487,11 @@ export default function PlaysSection({ logLinks = [], characters = [] }: { logLi
         return true;
       })
       .sort((a, b) => {
-        const statusDifference = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
-        if (statusDifference !== 0) return statusDifference;
         const aDates = getEntryDates(a, titleDatesMap.get(a.title));
         const bDates = getEntryDates(b, titleDatesMap.get(b.title));
         const aEnd = aDates ? (aDates.endDate ?? aDates.startDate) : '';
         const bEnd = bDates ? (bDates.endDate ?? bDates.startDate) : '';
-        return bEnd.localeCompare(aEnd);
+        return bEnd.localeCompare(aEnd) || a.title.localeCompare(b.title, 'ko');
       });
   }, [plays, filterStatus, filterType, filterRule, filterPlayerCount, filterTitleSearch, filterStartYear, titleDatesMap]);
 
