@@ -99,9 +99,33 @@ function parseCcaEntries(
         const copy = row.querySelector<HTMLElement>('.c');
         const narratorText = row.querySelector<HTMLElement>('.nt');
         const diceBox = getCcaDiceResult(row);
+        const inlinePost = row.querySelector<HTMLElement>(':scope > .ip');
         const tabName = getCcaTabName(row);
         const isWhisper = whisperChannels.includes(tabName) || isCcaWhisperTab(tabName);
-        if (!copy && !narratorText && !diceBox) return null;
+        if (!copy && !narratorText && !diceBox && !inlinePost) return null;
+
+        // Some current CCA themes render NPC dialogue as an inline-post row
+        // instead of the usual `.c` chat container. Those rows use `.ip > b`
+        // for the speaker and `.ip > div` for the dialogue. Check these before
+        // narration because themed inline posts may contain a nested `.nt`.
+        if (inlinePost) {
+          const speaker = inlinePost.querySelector(':scope > b')?.textContent?.trim() ?? '';
+          const content = inlinePost.querySelector<HTMLElement>(':scope > div')?.cloneNode(true) as HTMLElement | undefined;
+          const contentHtml = sanitizeHtml(content?.innerHTML.trim() ?? '');
+          if (!contentHtml) return null;
+
+          return {
+            id: `cca-archive-${index}`,
+            speaker,
+            avatarSrc: resolveRoll20AssetUrl(row.querySelector(':scope > .v img')?.getAttribute('src') ?? avatarMap[speaker] ?? '', htmlUrl) || null,
+            contentHtml,
+            isAside: isCcaAsideTab(tabName) || row.closest('details') !== null,
+            isWhisper,
+            whisperTo: tabName || undefined,
+            preserveLineBreaks: true,
+            kind: 'chat',
+          };
+        }
 
         if (narratorText) {
           const contentHtml = sanitizeHtml(narratorText.innerHTML.trim());

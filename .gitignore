@@ -31,6 +31,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Local headless-browser profiles used while checking TRPG logs.
+/.chrome-trpg-check*/
+
 # env files (can opt-in for committing if needed)
 .env*.local
 
