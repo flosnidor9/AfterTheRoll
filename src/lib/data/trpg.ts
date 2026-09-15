@@ -197,18 +197,34 @@ function isEncryptedLogPayload(value: unknown): value is EncryptedLogPayload {
   return ['salt', 'iv', 'ciphertext', 'authTag'].every((key) => typeof payload[key] === 'string');
 }
 
+function getLocalTrpgMasterKey(): string | null {
+  // Next.js only loads .env.local when its development server starts. Read the
+  // local-only fallback here as well so a newly added key works on the next
+  // page refresh during an existing development session.
+  try {
+    const envContents = fs.readFileSync(path.join(process.cwd(), '.env.local'), 'utf8');
+    const value = envContents.match(/^TRPG_MASTER_KEY\s*=\s*(.+)\s*$/m)?.[1]?.trim();
+    if (value) return value.replace(/^(['"])(.*)\1$/, '$2');
+  } catch {
+    // Fall through to the process environment.
+  }
+
+  return process.env.TRPG_MASTER_KEY?.trim() || null;
+}
+
 function getLocalTrpgPasswords(): Record<string, string> | null {
   const plainPasswordsPath = path.join(process.cwd(), 'passwords.json');
   const encryptedPasswordsPath = path.join(process.cwd(), 'passwords.enc.json');
+  let localPasswords: Record<string, string> | null = null;
 
   try {
-    return JSON.parse(fs.readFileSync(plainPasswordsPath, 'utf8')) as Record<string, string>;
+    localPasswords = JSON.parse(fs.readFileSync(plainPasswordsPath, 'utf8')) as Record<string, string>;
   } catch {
     // The local plaintext file is optional and may be intentionally absent.
   }
 
-  const masterKey = process.env.TRPG_MASTER_KEY;
-  if (!masterKey || !fs.existsSync(encryptedPasswordsPath)) return null;
+  const masterKey = getLocalTrpgMasterKey();
+  if (!masterKey || !fs.existsSync(encryptedPasswordsPath)) return localPasswords;
 
   try {
     const payload = JSON.parse(fs.readFileSync(encryptedPasswordsPath, 'utf8')) as unknown;
@@ -217,11 +233,12 @@ function getLocalTrpgPasswords(): Record<string, string> | null {
     const key = pbkdf2Sync(masterKey, Buffer.from(payload.salt, 'hex'), 100000, 32, 'sha256');
     const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(payload.iv, 'hex'));
     decipher.setAuthTag(Buffer.from(payload.authTag, 'hex'));
-    return JSON.parse(
+    const encryptedPasswords = JSON.parse(
       Buffer.concat([decipher.update(Buffer.from(payload.ciphertext, 'hex')), decipher.final()]).toString('utf8'),
     ) as Record<string, string>;
+    return { ...localPasswords, ...encryptedPasswords };
   } catch {
-    return null;
+    return localPasswords;
   }
 }
 
@@ -241,13 +258,26 @@ export function getLocalDecryptedTrpgPostHtml(folderSlug: string, postSlug: stri
     const passwords = getLocalTrpgPasswords();
     if (!passwords) return null;
     const passwordKey = `${normalizeSlug(folderSlug)}/${postSlug}`;
-    const password = passwords[passwordKey] ?? passwords[postSlug];
-    if (!password) return null;
+    const preferredPassword = passwords[passwordKey] ?? passwords[postSlug];
+    const candidates = [preferredPassword, ...Object.values(passwords)].filter(
+      (password): password is string => Boolean(password),
+    );
 
-    const key = pbkdf2Sync(password, Buffer.from(payload.salt, 'hex'), 100000, 32, 'sha256');
-    const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(payload.iv, 'hex'));
-    decipher.setAuthTag(Buffer.from(payload.authTag, 'hex'));
-    return Buffer.concat([decipher.update(Buffer.from(payload.ciphertext, 'hex')), decipher.final()]).toString('utf8');
+    // Older logs can have a differently normalized Korean filename in the
+    // password index. Development may safely try the local password archive
+    // so these logs still open automatically.
+    for (const password of new Set(candidates)) {
+      try {
+        const key = pbkdf2Sync(password, Buffer.from(payload.salt, 'hex'), 100000, 32, 'sha256');
+        const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(payload.iv, 'hex'));
+        decipher.setAuthTag(Buffer.from(payload.authTag, 'hex'));
+        return Buffer.concat([decipher.update(Buffer.from(payload.ciphertext, 'hex')), decipher.final()]).toString('utf8');
+      } catch {
+        // Try the next local password candidate.
+      }
+    }
+
+    return null;
   } catch {
     return null;
   }

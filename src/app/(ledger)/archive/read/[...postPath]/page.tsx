@@ -71,7 +71,10 @@ export default async function TrpgReadPage({ params }: Props) {
   const localHtmlContent = post.encrypted
     ? getLocalDecryptedTrpgPostHtml(resolved.folderSlug, resolved.postSlug)
     : undefined;
-  const shouldUseEncryptedReader = post.encrypted && process.env.NODE_ENV !== 'development';
+  // Development can pre-decrypt when the local master key is configured. If
+  // it is not, keep the protected-reader flow available instead of passing
+  // ciphertext to the ordinary log parser.
+  const shouldUseEncryptedReader = post.encrypted && !localHtmlContent;
 
   return (
     <main className="afterroll-read-shell afterroll-desk min-h-screen px-[1rem] pb-[4rem] pt-[5rem] text-[var(--ledger-ink)] md:px-[2rem] md:pt-[5.4rem]">

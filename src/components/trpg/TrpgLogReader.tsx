@@ -205,10 +205,10 @@ function parseCcaEntries(
       continue;
     }
 
-    const speaker = article.querySelector('.copy header b')?.textContent?.trim() ?? '';
-    const contentDiv = article.querySelector('.copy > div');
-    if (!contentDiv) continue;
-    const contentHtml = sanitizeHtml(contentDiv.innerHTML.trim());
+    const speaker = article.querySelector('.copy header b, .copy .kh b')?.textContent?.trim() ?? '';
+    const content = article.querySelector<HTMLElement>('.copy')?.cloneNode(true) as HTMLElement | undefined;
+    content?.querySelectorAll('header, .kh').forEach((header) => header.remove());
+    const contentHtml = sanitizeHtml(content?.innerHTML.trim() ?? '');
     if (!contentHtml) continue;
     const avatarSrc =
       resolveRoll20AssetUrl(article.querySelector('.portrait img')?.getAttribute('src') ?? avatarMap[speaker] ?? '', htmlUrl) || null;
