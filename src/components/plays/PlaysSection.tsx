@@ -30,6 +30,13 @@ interface CalendarEvent {
 }
 
 export type TitleDates = { startDate: string; endDate: string | null };
+const STATUS_SORT_ORDER: Record<PlayEntry['status'], number> = {
+  scheduled: 0,
+  ongoing: 1,
+  completed: 2,
+  dropped: 3,
+};
+
 type PlaySession = {
   id: string;
   date: string;
@@ -487,6 +494,9 @@ export default function PlaysSection({ logLinks = [], characters = [] }: { logLi
         return true;
       })
       .sort((a, b) => {
+        const statusDifference = STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status];
+        if (statusDifference !== 0) return statusDifference;
+
         const aDates = getEntryDates(a, titleDatesMap.get(a.title));
         const bDates = getEntryDates(b, titleDatesMap.get(b.title));
         const aEnd = aDates ? (aDates.endDate ?? aDates.startDate) : '';
