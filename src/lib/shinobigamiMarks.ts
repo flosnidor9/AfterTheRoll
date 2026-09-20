@@ -1,4 +1,10 @@
-const MARKS_BASE_PATH = '/images/shinobigami-marks';
+// Static assets live at the site root locally, but GitHub Pages serves the
+// production export below /AfterTheRoll. next/image does not prepend
+// basePath for string `src` values, so this must be part of the URL itself.
+const SITE_BASE_PATH = process.env.NODE_ENV === 'production'
+  ? (process.env.NEXT_PUBLIC_BASE_PATH ?? '/AfterTheRoll')
+  : '';
+const MARKS_BASE_PATH = `${SITE_BASE_PATH}/images/shinobigami-marks`;
 
 const MARK_FILES: Record<string, string> = {
   '斜歯忍軍': 'shinobigami_mark_hasuba.png', '鍔鑿組': 'shinobigami_mark_tubanomi.png', '大槌群': 'shinobigami_mark_oozuchigun.png', '指矩班': 'shinobigami_mark_sashiganehan.png', '御釘衆': 'shinobigami_mark_okugisyu.png', '鍵盤勢': 'shinobigami_mark_kenbanzei.png',
