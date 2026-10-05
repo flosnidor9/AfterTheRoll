@@ -218,10 +218,12 @@ export default function CharacterManagementActions({
   character,
   onUpdated,
   onDeleted,
+  placement = "polaroid",
 }: {
   character: Character;
   onUpdated: (character: Character) => void;
   onDeleted: () => void;
+  placement?: "polaroid" | "inline";
 }) {
   const { isAdmin, loading } = useAuth();
   const [mode, setMode] = useState<Mode>(null);
@@ -416,22 +418,30 @@ export default function CharacterManagementActions({
   return (
     <>
       <div
-        className="absolute bottom-[0.7rem] right-[0.75rem] z-[5] flex gap-[0.4rem] opacity-100 transition-opacity duration-200 sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"
+        className={placement === "inline"
+          ? "relative z-[5] mt-[1rem] flex flex-wrap gap-[0.5rem]"
+          : "absolute bottom-[0.7rem] right-[0.75rem] z-[5] flex gap-[0.4rem] opacity-100 transition-opacity duration-200 sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100"}
         onClick={(event) => event.stopPropagation()}
       >
         <button
           type="button"
-          className="bg-transparent p-0 text-[0.68rem]"
-          style={{ color: "rgb(88 61 70)" }}
+          className={placement === "inline"
+            ? "rounded-full border border-[var(--atr-line-strong)] bg-white/60 px-[0.85rem] py-[0.4rem] text-xs text-[var(--atr-text)] hover:border-[var(--atr-accent)] focus-visible:outline-[var(--atr-accent)]"
+            : "bg-transparent p-0 text-[0.68rem]"}
+          style={placement === "polaroid" ? { color: "rgb(88 61 70)" } : undefined}
           onClick={() => open("edit")}
+          aria-label={`${character.name} 수정`}
         >
           수정
         </button>
         <button
           type="button"
-          className="bg-transparent p-0 text-[0.68rem] drop-shadow-[0_0.06rem_0.16rem_rgba(0,0,0,0.7)]"
-          style={{ color: "rgb(196 92 108)" }}
+          className={placement === "inline"
+            ? "rounded-full border border-[var(--atr-line)] bg-white/40 px-[0.85rem] py-[0.4rem] text-xs text-[var(--atr-muted)] hover:border-[var(--atr-line-strong)] focus-visible:outline-[var(--atr-accent)]"
+            : "bg-transparent p-0 text-[0.68rem] drop-shadow-[0_0.06rem_0.16rem_rgba(0,0,0,0.7)]"}
+          style={placement === "polaroid" ? { color: "rgb(196 92 108)" } : undefined}
           onClick={() => open("delete")}
+          aria-label={`${character.name} 삭제`}
         >
           삭제
         </button>

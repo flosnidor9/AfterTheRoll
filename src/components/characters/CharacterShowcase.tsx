@@ -136,6 +136,7 @@ function CharacterInformation({ character, sessions, sessionLogLinks, reducedMot
 }
 
 export default function CharacterShowcase({ characters, sessionLogLinks = [] }: { characters: Character[]; sessionLogLinks?: SessionLogLink[] }) {
+  const { isAdmin } = useAuth();
   const [characterList, setCharacterList] = useState(characters);
   const [activeId, setActiveId] = useState<string | null>(characters.length === 1 ? characters[0].id : null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
@@ -221,11 +222,11 @@ export default function CharacterShowcase({ characters, sessionLogLinks = [] }: 
             <div className="relative border-l-[0.15rem] bg-[rgba(255,253,253,0.62)] p-[1rem] backdrop-blur-[0.5rem] md:max-h-[42vh] md:overflow-y-auto md:p-[1.35rem]" style={{ borderColor: characterWash(characterColor, COLOR_ACCENT_ALPHA) }}>
               <p className="mb-[1rem] text-xs uppercase tracking-[0.2em] text-[var(--atr-soft)]">Character Dossier</p>
               <CharacterInformation character={active} sessions={sessions} sessionLogLinks={sessionLogLinks} reducedMotion={reducedMotion} />
-              <div className="mt-[1.5rem] flex flex-wrap gap-[0.6rem]"><CharacterManagementActions character={active} onUpdated={updateCharacter} onDeleted={deleteCharacter} /></div>
             </div>
           </motion.div></AnimatePresence>
         </div>
-        <motion.p className="pointer-events-none absolute bottom-[1rem] left-1/2 -translate-x-1/2 text-xs tracking-[0.18em] text-[var(--atr-soft)]" animate={{ opacity: hasScrolled ? 0 : 1, y: hasScrolled ? '0.5rem' : 0 }} aria-hidden="true">SCROLL TO EXPLORE ↓</motion.p>
+        <div className="absolute bottom-[1rem] left-[1.2rem] z-[4] md:left-[3rem]"><CharacterManagementActions placement="inline" character={active} onUpdated={updateCharacter} onDeleted={deleteCharacter} /></div>
+        <motion.p className={`pointer-events-none absolute bottom-[1rem] left-1/2 -translate-x-1/2 text-xs tracking-[0.18em] text-[var(--atr-soft)] ${isAdmin ? 'hidden sm:block' : ''}`} animate={{ opacity: hasScrolled ? 0 : 1, y: hasScrolled ? '0.5rem' : 0 }} aria-hidden="true">SCROLL TO EXPLORE ↓</motion.p>
       </section>
       <nav className="pc-roster relative border-t border-[var(--atr-line)] bg-[rgba(255,253,253,0.68)] px-[1rem] pb-[3rem] pt-[2.5rem]" aria-label="캐릭터 선택">
         <p className="mb-[1.5rem] text-center text-xs uppercase tracking-[0.24em] text-[var(--atr-soft)]">Choose a character · {sortedCharacters.length}</p>
