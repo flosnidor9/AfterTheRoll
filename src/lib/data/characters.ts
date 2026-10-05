@@ -61,12 +61,18 @@ export type Character = {
 
 const CHARACTER_ARCHIVE_PATH = path.join(TRPG_PUBLIC_ROOT, 'characters', 'characters.json');
 const CHARACTER_IMAGE_PATH_PREFIX = '/images/characters/';
+const DEPLOYED_CHARACTER_IMAGE_PATH_PREFIX = `${process.env.NEXT_PUBLIC_BASE_PATH ?? '/AfterTheRoll'}${CHARACTER_IMAGE_PATH_PREFIX}`;
 
 type CharacterArchive = { characters?: Character[] };
 
 function toCharacterAssetUrl(value: string) {
-  if (!value.startsWith(CHARACTER_IMAGE_PATH_PREFIX)) return value;
-  return `${TRPG_ASSET_PREFIX}/characters/${value.slice(CHARACTER_IMAGE_PATH_PREFIX.length)}`;
+  const prefix = value.startsWith(CHARACTER_IMAGE_PATH_PREFIX)
+    ? CHARACTER_IMAGE_PATH_PREFIX
+    : value.startsWith(DEPLOYED_CHARACTER_IMAGE_PATH_PREFIX)
+      ? DEPLOYED_CHARACTER_IMAGE_PATH_PREFIX
+      : null;
+  if (!prefix) return value;
+  return `${TRPG_ASSET_PREFIX}/characters/${value.slice(prefix.length)}`;
 }
 
 export function getCharacters(): Character[] {

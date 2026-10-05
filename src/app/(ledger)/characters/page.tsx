@@ -1,4 +1,5 @@
-import CharactersSection, { type SessionLogLink } from '@/components/characters/CharactersSection';
+import CharacterShowcase from '@/components/characters/CharacterShowcase';
+import type { SessionLogLink } from '@/components/characters/CharactersSection';
 import { getCharacters } from '@/lib/data/characters';
 import { getAllTrpgPosts } from '@/lib/data/trpg';
 import { toGalleryPath } from '@/lib/galleryPath';
@@ -13,5 +14,5 @@ export default function CharactersPage() {
     href: `/archive/read/${toGalleryPath(post.fullSlug)}`,
   }));
 
-  return <CharactersSection characters={getCharacters()} sessionLogLinks={sessionLogLinks} />;
+  return <CharacterShowcase characters={getCharacters()} sessionLogLinks={sessionLogLinks} />;
 }
