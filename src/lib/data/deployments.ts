@@ -45,10 +45,9 @@ function postFromFile(year: string, filePath: string): DeploymentPost | null {
 }
 
 export function getAllDeploymentPosts(): DeploymentPost[] {
-  if (!fs.existsSync(DEPLOYMENTS_ROOT)) return [];
-
   const posts: DeploymentPost[] = [];
-  for (const yearEntry of fs.readdirSync(DEPLOYMENTS_ROOT, { withFileTypes: true })) {
+  const years = fs.existsSync(DEPLOYMENTS_ROOT) ? fs.readdirSync(DEPLOYMENTS_ROOT, { withFileTypes: true }) : [];
+  for (const yearEntry of years) {
     if (!yearEntry.isDirectory()) continue;
     const yearPath = path.join(DEPLOYMENTS_ROOT, yearEntry.name);
     for (const postEntry of fs.readdirSync(yearPath, { withFileTypes: true })) {
@@ -63,7 +62,7 @@ export function getAllDeploymentPosts(): DeploymentPost[] {
   return posts.sort((a, b) => b.date.localeCompare(a.date, 'ko') || b.title.localeCompare(a.title, 'ko'));
 }
 
-export function getDeploymentPost(year: string, slug: string) {
+export function getDeploymentPost(year: string, slug: string): DeploymentPost | null {
   const postPath = path.join(DEPLOYMENTS_ROOT, year, slug, `${slug}.md`);
   return fs.existsSync(postPath) ? postFromFile(year, postPath) : null;
 }

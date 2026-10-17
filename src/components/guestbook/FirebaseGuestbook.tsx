@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp, Timestamp, doc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import ResolvedStamp from './ResolvedStamp';
+import ResolutionButton from './ResolutionButton';
 
 type GuestbookEntry = {
   id: string;
@@ -14,6 +16,7 @@ type GuestbookEntry = {
   parentId?: string;
   authorRole?: 'admin' | 'guest';
   likedBy?: string[];
+  resolved?: boolean;
 };
 
 type GuestbookTheme = 'glass' | 'afterroll';
@@ -26,6 +29,7 @@ type FirebaseGuestbookProps = {
   canDeleteWhenSignedIn?: boolean;
   threaded?: boolean;
   likesEnabled?: boolean;
+  resolutionEnabled?: boolean;
 };
 
 const MAX_MESSAGE_LENGTH = 500;
@@ -120,6 +124,8 @@ type ThreadedEntryProps = {
   isSubmitting: boolean;
   isAdminWriter: boolean;
   likesEnabled: boolean;
+  resolutionEnabled: boolean;
+  resolvingId: string | null;
   reactingId: string | null;
   visitorId: string | null;
   canDelete: boolean;
@@ -129,6 +135,7 @@ type ThreadedEntryProps = {
   onDelete: (entryId: string) => Promise<void>;
   onReplySubmit: (parentId: string, name: string, message: string) => Promise<boolean>;
   onLike: (entry: GuestbookEntry) => Promise<void>;
+  onResolve: (entry: GuestbookEntry) => Promise<void>;
   renderReply: (entry: GuestbookEntry, index: number, depth: number) => React.ReactNode;
 };
 
@@ -141,6 +148,8 @@ function ThreadedEntry({
   isSubmitting,
   isAdminWriter,
   likesEnabled,
+  resolutionEnabled,
+  resolvingId,
   reactingId,
   visitorId,
   canDelete,
@@ -150,6 +159,7 @@ function ThreadedEntry({
   onDelete,
   onReplySubmit,
   onLike,
+  onResolve,
   renderReply,
 }: ThreadedEntryProps) {
   const [isReplying, setIsReplying] = useState(false);
@@ -190,12 +200,16 @@ function ThreadedEntry({
             )}
           </div>
         </div>
-        <p className={styles.messageClassName}>{entry.message}</p>
-        <div className="mt-[0.65rem] flex items-center gap-[0.75rem]">
+        <div className="relative">
+          <p className={`min-w-0 break-words ${styles.messageClassName}`}>{entry.message}</p>
+          {resolutionEnabled && <ResolvedStamp resolved={entry.resolved === true} />}
+        </div>
+        <div className="mt-[0.65rem] flex flex-wrap items-center gap-[0.75rem]">
           <button type="button" onClick={() => setIsReplying((current) => !current)} className={styles.replyButtonClassName} aria-expanded={isReplying}>
             {isReplying ? '답글 취소' : '답글'}
           </button>
           {likesEnabled && <button type="button" onClick={() => void onLike(entry)} disabled={!visitorId || reactingId === entry.id} aria-pressed={visitorId ? entry.likedBy?.includes(visitorId) : false} className={styles.reactionButtonClassName}>{visitorId && entry.likedBy?.includes(visitorId) ? '👍' : '👍🏻'} {getLikeCount(entry)}</button>}
+          {resolutionEnabled && isAdminWriter && <ResolutionButton resolved={entry.resolved === true} pending={resolvingId !== null} onToggle={() => void onResolve(entry)} className={styles.reactionButtonClassName} />}
         </div>
       </motion.div>
 
@@ -238,6 +252,7 @@ export default function FirebaseGuestbook({
   canDeleteWhenSignedIn = false,
   threaded = false,
   likesEnabled = false,
+  resolutionEnabled = false,
 }: FirebaseGuestbookProps) {
   const { user, isAdmin } = useAuth();
   const [entries, setEntries] = useState<GuestbookEntry[]>([]);
@@ -246,6 +261,7 @@ export default function FirebaseGuestbook({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reactingId, setReactingId] = useState<string | null>(null);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [visitorId, setVisitorId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const styles = THEME_STYLES[theme];
@@ -357,6 +373,30 @@ export default function FirebaseGuestbook({
     }
   };
 
+  const handleResolve = async (entry: GuestbookEntry) => {
+    if (!resolutionEnabled || !isAdmin || resolvingId) return;
+
+    setResolvingId(entry.id);
+    setError('');
+    try {
+      const resolved = await runTransaction(db, async (transaction) => {
+        const entryRef = doc(db, collectionName, entry.id);
+        const snapshot = await transaction.get(entryRef);
+        if (!snapshot.exists()) throw new Error('Comment no longer exists');
+
+        const nextResolved = snapshot.data().resolved !== true;
+        transaction.update(entryRef, { resolved: nextResolved });
+        return nextResolved;
+      });
+      setEntries((current) => current.map((item) => item.id === entry.id ? { ...item, resolved } : item));
+    } catch (err) {
+      console.error('Failed to update resolution:', err);
+      setError('반영완료 표시를 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
   const formatDate = (timestamp?: Timestamp) => {
     if (!timestamp) return '';
     const date = timestamp.toDate();
@@ -431,6 +471,8 @@ export default function FirebaseGuestbook({
         isSubmitting={isSubmitting}
         isAdminWriter={isAdmin}
         likesEnabled={likesEnabled}
+        resolutionEnabled={resolutionEnabled}
+        resolvingId={resolvingId}
         reactingId={reactingId}
         visitorId={visitorId}
         canDelete={canDelete}
@@ -440,6 +482,7 @@ export default function FirebaseGuestbook({
         onDelete={handleDelete}
         onReplySubmit={handleReplySubmit}
         onLike={handleLike}
+        onResolve={handleResolve}
         renderReply={renderEntry}
       />
     );
@@ -553,9 +596,11 @@ export default function FirebaseGuestbook({
               </div>
 
               {/* 메시지 */}
-              <p className={styles.messageClassName}>
-                {entry.message}
-              </p>
+              <div className="relative">
+                <p className={`min-w-0 break-words ${styles.messageClassName}`}>{entry.message}</p>
+                {resolutionEnabled && <ResolvedStamp resolved={entry.resolved === true} />}
+              </div>
+              {resolutionEnabled && isAdmin && <div className="mt-3"><ResolutionButton resolved={entry.resolved === true} pending={resolvingId !== null} onToggle={() => void handleResolve(entry)} className={styles.reactionButtonClassName} /></div>}
             </motion.div>
             ))}
           </AnimatePresence>

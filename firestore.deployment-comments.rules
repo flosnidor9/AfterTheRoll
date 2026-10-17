@@ -1,0 +1,42 @@
+// Merge this fragment inside /databases/{database}/documents in the existing
+// ruleset. It is NOT a complete ruleset and must not replace other collections.
+// IMPORTANT: exclude afterTheRollDeploymentComments_* from any other permissive
+// wildcard match. Firestore grants access if ANY matching allow rule is true.
+match /{collectionName}/{commentId} {
+  function isDeploymentComment() {
+    return collectionName.matches('afterTheRollDeploymentComments_.*');
+  }
+
+  function isDeploymentAdmin() {
+    return request.auth != null
+      && request.auth.token.email == 'flosnidor9@gmail.com'
+      && request.auth.token.email_verified == true;
+  }
+
+  allow read: if isDeploymentComment();
+
+  // Guests cannot forge a stamp (or an administrator's author role) on creation.
+  allow create: if isDeploymentComment()
+    && request.resource.data.keys().hasOnly([
+      'name', 'authorRole', 'message', 'timestamp', 'parentId'
+    ])
+    && request.resource.data.name is string
+    && request.resource.data.name.size() > 0
+    && request.resource.data.name.size() <= 50
+    && request.resource.data.message is string
+    && request.resource.data.message.size() > 0
+    && request.resource.data.message.size() <= 500
+    && request.resource.data.timestamp == request.time
+    && (!('parentId' in request.resource.data) || request.resource.data.parentId is string)
+    && (request.resource.data.authorRole == 'guest'
+      || (isDeploymentAdmin() && request.resource.data.authorRole == 'admin'));
+
+  // Public likes may only change likedBy; the stamp is a separate admin-only edit.
+  allow update: if isDeploymentComment() && (
+    (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy'])
+      && request.resource.data.likedBy is list)
+    || (isDeploymentAdmin()
+      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resolved'])
+      && request.resource.data.resolved is bool)
+  );
+}
