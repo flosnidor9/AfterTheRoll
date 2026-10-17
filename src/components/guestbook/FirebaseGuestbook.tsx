@@ -27,6 +27,7 @@ type FirebaseGuestbookProps = {
   emptyMessage?: string;
   theme?: GuestbookTheme;
   canDeleteWhenSignedIn?: boolean;
+  canDeleteAsAdmin?: boolean;
   threaded?: boolean;
   likesEnabled?: boolean;
   resolutionEnabled?: boolean;
@@ -194,7 +195,7 @@ function ThreadedEntry({
           <div className="flex items-center gap-[0.6rem]">
             <time className={styles.timeClassName}>{formatDate(entry.timestamp)}</time>
             {canDelete && (
-              <button type="button" onClick={() => onDelete(entry.id)} disabled={deletingId === entry.id} className={styles.deleteButtonClassName}>
+              <button type="button" onClick={() => onDelete(entry.id)} disabled={deletingId !== null} className={styles.deleteButtonClassName}>
                 {deletingId === entry.id ? '삭제 중...' : '삭제'}
               </button>
             )}
@@ -250,6 +251,7 @@ export default function FirebaseGuestbook({
   emptyMessage = '첫 번째 방문자가 되어주세요',
   theme = 'glass',
   canDeleteWhenSignedIn = false,
+  canDeleteAsAdmin = false,
   threaded = false,
   likesEnabled = false,
   resolutionEnabled = false,
@@ -265,7 +267,7 @@ export default function FirebaseGuestbook({
   const [visitorId, setVisitorId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const styles = THEME_STYLES[theme];
-  const canDelete = canDeleteWhenSignedIn && !!user;
+  const canDelete = (canDeleteAsAdmin && isAdmin) || (canDeleteWhenSignedIn && !!user);
 
   const loadEntries = useCallback(async () => {
     try {
@@ -333,8 +335,9 @@ export default function FirebaseGuestbook({
   };
 
   const handleDelete = async (entryId: string) => {
-    if (!canDelete) return;
-    if (!window.confirm('이 방명록을 삭제할까요?')) return;
+    if (!canDelete || deletingId) return;
+    const confirmation = threaded ? '이 댓글을 삭제할까요? 달린 답글은 삭제되지 않습니다.' : '이 방명록을 삭제할까요?';
+    if (!window.confirm(confirmation)) return;
 
     setDeletingId(entryId);
     setError('');
@@ -344,7 +347,7 @@ export default function FirebaseGuestbook({
       setEntries((current) => current.filter((entry) => entry.id !== entryId));
     } catch (err) {
       console.error('Failed to delete entry:', err);
-      setError('방명록 삭제에 실패했습니다. 다시 시도해주세요.');
+      setError(threaded ? '댓글 삭제에 실패했습니다. 다시 시도해주세요.' : '방명록 삭제에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setDeletingId(null);
     }
@@ -586,7 +589,7 @@ export default function FirebaseGuestbook({
                     <button
                       type="button"
                       onClick={() => handleDelete(entry.id)}
-                      disabled={deletingId === entry.id}
+                      disabled={deletingId !== null}
                       className={styles.deleteButtonClassName}
                     >
                       {deletingId === entry.id ? '삭제 중...' : '삭제'}

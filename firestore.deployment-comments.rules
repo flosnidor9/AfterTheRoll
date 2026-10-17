@@ -39,4 +39,6 @@ match /{collectionName}/{commentId} {
       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resolved'])
       && request.resource.data.resolved is bool)
   );
+
+  allow delete: if isDeploymentComment() && isDeploymentAdmin();
 }
