@@ -1,10 +1,13 @@
 ﻿'use client';
 
 import DOMPurify from 'dompurify';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { TrpgCastEntry } from '@/lib/data/trpg';
 import { expandCcaArchive } from '@/lib/ccaArchive';
+import CinematicLogPlayer from './CinematicLogPlayer';
+import StickyLogToolbar from './StickyLogToolbar';
+import { createCinematicEntries, createReaderEntries, findPlaybackPage, findTopPlaybackIndex, playbackLineId } from '@/lib/trpgLogPlayback';
 
 type Props = {
   htmlUrl?: string;
@@ -16,13 +19,17 @@ type Props = {
   whisperChannels?: string[];
 };
 
-type LogEntry = {
+export type LogEntry = {
   id: string;
   speaker: string;
   whisperFrom?: string;
   whisperTo?: string;
   avatarSrc: string | null;
   contentHtml: string;
+  cinematicLines?: string[];
+  sourceEntryIds?: string[];
+  sourceEntryId?: string;
+  sourceLineIndex?: number;
   isAside: boolean;
   isWhisper: boolean;
   isNarrator?: boolean;
@@ -45,6 +52,9 @@ const MAX_PAGE_WEIGHT = 120000;
 const RELOAD_STORAGE_KEY = 'trpg-log-reader-reload';
 const PORTRAIT_CROP_RATIO = 1.15;
 const EMPTY_LOG_ENTRIES: LogEntry[] = [];
+const DEFAULT_MAIN_CHANNELS = ['main'];
+const EMPTY_CHANNELS: string[] = [];
+const FONT_STORAGE_KEY = 'trpg-log-reader-font';
 
 function sanitizeHtml(html: string): string {
   if (typeof window === 'undefined') return html;
@@ -84,6 +94,14 @@ function getCcaDiceResult(node: Element): HTMLElement | null {
   return node.querySelector<HTMLElement>('.dice-roll-box, .dice-result-card + .dice-roll-box, .dc > .db, [class*="dice-roll"]');
 }
 
+function getCcaDialogueLines(content: HTMLElement | undefined): string[] | undefined {
+  if (!content) return;
+  const lines = Array.from(content.querySelectorAll<HTMLElement>(':scope > .ls > .ln'))
+    .map((line) => sanitizeHtml(line.innerHTML.trim()))
+    .filter(Boolean);
+  return lines.length ? lines : undefined;
+}
+
 function parseCcaEntries(
   html: string,
   avatarMap: Record<string, string>,
@@ -119,6 +137,7 @@ function parseCcaEntries(
             speaker,
             avatarSrc: resolveRoll20AssetUrl(row.querySelector(':scope > .v img')?.getAttribute('src') ?? avatarMap[speaker] ?? '', htmlUrl) || null,
             contentHtml,
+            cinematicLines: getCcaDialogueLines(content),
             isAside: isCcaAsideTab(tabName) || row.closest('details') !== null,
             isWhisper,
             whisperTo: tabName || undefined,
@@ -151,7 +170,7 @@ function parseCcaEntries(
           return {
             id: `cca-archive-${index}`,
             speaker,
-            avatarSrc: resolveRoll20AssetUrl(row.querySelector('img')?.getAttribute('src') ?? avatarMap[speaker] ?? '', htmlUrl) || null,
+            avatarSrc: resolveRoll20AssetUrl(row.querySelector(':scope > .v img')?.getAttribute('src') ?? avatarMap[speaker] ?? '', htmlUrl) || null,
             contentHtml: sanitizeHtml(diceBox.outerHTML),
             isAside: isCcaAsideTab(tabName) || row.closest('details') !== null,
             isWhisper,
@@ -170,8 +189,9 @@ function parseCcaEntries(
         return {
           id: `cca-archive-${index}`,
           speaker,
-          avatarSrc: resolveRoll20AssetUrl(row.querySelector('img')?.getAttribute('src') ?? avatarMap[speaker] ?? '', htmlUrl) || null,
+          avatarSrc: resolveRoll20AssetUrl(row.querySelector(':scope > .v img')?.getAttribute('src') ?? avatarMap[speaker] ?? '', htmlUrl) || null,
           contentHtml,
+          cinematicLines: getCcaDialogueLines(content),
           isAside: isCcaAsideTab(tabName) || row.closest('details') !== null,
           isWhisper,
           whisperTo: tabName || undefined,
@@ -242,6 +262,7 @@ function parseCcaEntries(
       speaker,
       avatarSrc,
       contentHtml,
+      cinematicLines: getCcaDialogueLines(content),
       isAside,
       isWhisper,
       whisperTo: tabName || undefined,
@@ -303,6 +324,7 @@ function parseCcfoliaEntries(html: string, avatarMap: Record<string, string>, ma
       isAside: !mainChannels.includes(channel),
       isWhisper,
       whisperTo: isWhisper ? channel : undefined,
+      preserveLineBreaks: true,
       kind: 'chat',
     });
   }
@@ -553,31 +575,6 @@ function paginateEntries(entries: LogEntry[]): LogEntry[][] {
   return pages;
 }
 
-function mergeConsecutiveCharacterEntries(entries: LogEntry[]): LogEntry[] {
-  return entries.reduce<LogEntry[]>((merged, entry) => {
-    const previous = merged.at(-1);
-    const isSameCharacter =
-      previous &&
-      entry.kind === 'chat' &&
-      previous.kind === 'chat' &&
-      !entry.isNarrator &&
-      !previous.isNarrator &&
-      Boolean(entry.speaker) &&
-      entry.speaker === previous.speaker &&
-      entry.isAside === previous.isAside &&
-      entry.isWhisper === previous.isWhisper &&
-      entry.whisperTo === previous.whisperTo;
-
-    if (!isSameCharacter) {
-      merged.push(entry);
-      return merged;
-    }
-
-    previous.contentHtml += `<div class="trpg-log-continuation">${entry.contentHtml}</div>`;
-    return merged;
-  }, []);
-}
-
 function wrapPortraitLogImage(img: HTMLImageElement) {
   if (img.closest('.trpg-portrait-frame')) return;
   if (!img.naturalWidth || !img.naturalHeight) return;
@@ -589,12 +586,32 @@ function wrapPortraitLogImage(img: HTMLImageElement) {
   frame.appendChild(img);
 }
 
-export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc, gmName, cast, mainChannels = ['main'], whisperChannels = [] }: Props) {
+function addPlaybackAnchors(html: string, playbackIndexes: Map<string, number>): string {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  for (const source of doc.querySelectorAll<HTMLElement>('[data-trpg-source]')) {
+    const sourceId = decodeURIComponent(source.dataset.trpgSource!);
+    const lines = Array.from(source.querySelectorAll<HTMLElement>('.ls > .ln'));
+    for (const [index, line] of (lines.length ? lines : [source]).entries()) {
+      const anchorId = playbackLineId(sourceId, index);
+      const playbackIndex = playbackIndexes.get(anchorId);
+      if (playbackIndex === undefined) continue;
+      line.id = anchorId;
+      line.dataset.trpgPlaybackIndex = String(playbackIndex);
+      line.tabIndex = -1;
+      line.classList.add('outline-none', 'focus:bg-amber-900/10');
+    }
+  }
+  return doc.body.innerHTML;
+}
+
+export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc, gmName, cast, mainChannels = DEFAULT_MAIN_CHANNELS, whisperChannels = EMPTY_CHANNELS }: Props) {
   const [html, setHtml] = useState<string | null>(htmlContent ?? null);
   const [isClient, setIsClient] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
   const [showAside, setShowAside] = useState(true);
   const [logFont, setLogFont] = useState<LogFontValue>('default');
+  const [returnLineId, setReturnLineId] = useState<string | null>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const readerRef = useRef<HTMLElement | null>(null);
   const restoredPageRef = useRef(false);
   const shouldScrollToReaderRef = useRef(false);
@@ -605,7 +622,14 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
   );
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setIsClient(true));
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        const savedFont = window.localStorage.getItem(FONT_STORAGE_KEY);
+        const option = LOG_FONT_OPTIONS.find((font) => font.value === savedFont);
+        if (option) setLogFont(option.value);
+      } catch { /* Reading still works when browser storage is unavailable. */ }
+      setIsClient(true);
+    });
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
@@ -679,7 +703,7 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
     return () => controller.abort();
   }, [htmlUrl, htmlContent]);
 
-  const entries = useMemo(() => {
+  const rawEntries = useMemo(() => {
     if (!html || !isClient) return [];
     const format = detectFormat(html);
     const normalizedMainChannels = mainChannels.map(normalizeChannel);
@@ -693,8 +717,13 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
             ? parseCcfoliaEntries(html, avatarMap, normalizedMainChannels, normalizedWhisperChannels)
             : parseEntries(html, htmlUrl);
 
-    return mergeConsecutiveCharacterEntries(parsedEntries);
+    return parsedEntries;
   }, [html, isClient, avatarMap, mainChannels, whisperChannels, htmlUrl, gmName]);
+  const entries = useMemo(() => createReaderEntries(rawEntries), [rawEntries]);
+  const cinematicEntries = useMemo(
+    () => createCinematicEntries(rawEntries, avatarMap),
+    [rawEntries, avatarMap],
+  );
   const visibleEntries = useMemo(
     () => (showAside ? entries : entries.filter((entry) => !entry.isAside)),
     [entries, showAside],
@@ -702,6 +731,29 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
   const pages = useMemo(() => paginateEntries(visibleEntries), [visibleEntries]);
   const effectivePageIndex = Math.min(pageIndex, Math.max(0, pages.length - 1));
   const currentPage = useMemo(() => pages[effectivePageIndex] ?? EMPTY_LOG_ENTRIES, [effectivePageIndex, pages]);
+  const playbackIndexes = useMemo(() => new Map(cinematicEntries.map((entry, index) => [
+    playbackLineId(entry.sourceEntryId!, entry.sourceLineIndex), index,
+  ])), [cinematicEntries]);
+  const renderedPage = useMemo(() => currentPage.map((entry) => ({
+    ...entry,
+    contentHtml: addPlaybackAnchors(entry.contentHtml, playbackIndexes),
+  })), [currentPage, playbackIndexes]);
+  const returnFromCinematic = useCallback((entry: LogEntry) => {
+    if (!entry.sourceEntryId) return;
+    const targetPage = findPlaybackPage(pages, entry.sourceEntryId);
+    if (targetPage < 0) return;
+    shouldScrollToReaderRef.current = false;
+    setPageIndex(targetPage);
+    setReturnLineId(playbackLineId(entry.sourceEntryId, entry.sourceLineIndex));
+  }, [pages]);
+  const getCinematicStartIndex = () => {
+    const anchors = Array.from(readerRef.current?.querySelectorAll<HTMLElement>('[data-trpg-playback-index]') ?? []);
+    const contentTop = Math.max(0, toolbarRef.current?.getBoundingClientRect().bottom ?? 0);
+    return findTopPlaybackIndex(anchors.map((anchor) => {
+      const rect = anchor.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, index: Number(anchor.dataset.trpgPlaybackIndex) };
+    }), contentTop, window.innerHeight);
+  };
   const selectedLogFont = LOG_FONT_OPTIONS.find((option) => option.value === logFont) ?? LOG_FONT_OPTIONS[0];
   const readerStyle = {
     '--trpg-log-font-family': selectedLogFont.fontFamily,
@@ -737,6 +789,17 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
     shouldScrollToReaderRef.current = false;
     readerRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }, [effectivePageIndex]);
+
+  useEffect(() => {
+    if (!returnLineId) return;
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById(returnLineId);
+      target?.scrollIntoView({ block: 'center', behavior: 'instant' });
+      target?.focus({ preventScroll: true });
+      setReturnLineId(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [returnLineId, effectivePageIndex, renderedPage]);
 
   useEffect(() => {
     const reader = readerRef.current;
@@ -800,14 +863,19 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
         onSelect={(value) => moveToPage(value)}
       />
 
-      <div className="trpg-reader-toolbar ledger-paper-sheet mt-[0.65rem] flex items-center justify-between gap-[1rem] px-[0.9rem] py-[0.8rem] text-[0.8rem] text-[var(--ledger-muted)]">
-        <p className="afterroll-meta relative z-[1] text-[0.84rem] uppercase tracking-[0.12em]">{visibleEntries.length} transcript lines</p>
-        <div className="relative z-[1] flex flex-wrap items-center justify-end gap-[0.65rem]">
+      <StickyLogToolbar toolbarRef={toolbarRef} readerRef={readerRef}>
+        <p className="afterroll-meta hidden text-sm uppercase tracking-wide md:block">{visibleEntries.length} transcript lines</p>
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+          <CinematicLogPlayer entries={cinematicEntries} fontFamily={selectedLogFont.fontFamily} getStartIndex={getCinematicStartIndex} onClose={returnFromCinematic} />
           <label className="inline-flex items-center gap-[0.45rem]">
             <span className="afterroll-meta text-[0.84rem] tracking-[0.08em]">글씨체</span>
             <select
               value={logFont}
-              onChange={(event) => setLogFont(event.target.value as LogFontValue)}
+              onChange={(event) => {
+                const value = event.target.value as LogFontValue;
+                setLogFont(value);
+                try { window.localStorage.setItem(FONT_STORAGE_KEY, value); } catch { /* Keep the session selection even without storage. */ }
+              }}
               className="afterroll-meta min-w-[5.6rem] border border-[var(--atr-line)] bg-transparent px-[0.45rem] py-[0.28rem] text-[0.8rem] text-[var(--ledger-muted)]"
               aria-label="로그 글씨체"
             >
@@ -828,10 +896,10 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
             <span className="afterroll-meta text-[0.84rem] tracking-[0.08em]">사담</span>
           </label>
         </div>
-      </div>
+      </StickyLogToolbar>
 
       <div className="mt-[0.7rem]">
-        {currentPage.map((entry) => (
+        {renderedPage.map((entry) => (
           <article
             key={entry.id}
             className={

@@ -2837,7 +2837,6 @@ body.after-roll-theme::after {
 }
 
 .atr-file-content .trpg-cast-panel,
-.atr-file-content .trpg-reader-toolbar,
 .atr-file-content .trpg-page-nav {
   border-top: 0.05rem solid rgba(88, 125, 163, 0.16) !important;
   border-bottom: 0.05rem solid rgba(88, 125, 163, 0.16) !important;
@@ -2954,6 +2953,12 @@ body.after-roll-theme a::after {
 .atr-file-content .trpg-log-reader * {
   box-shadow: none !important;
   text-shadow: none !important;
+}
+
+/* A cinematic is portaled outside the reader, so override the site's forced UI font. */
+body.after-roll-theme .trpg-cinematic-player,
+body.after-roll-theme .trpg-cinematic-player * {
+  font-family: var(--trpg-log-font-family) !important;
 }
 
 .atr-file-content .trpg-log-reader .trpg-entry-content,
