@@ -15,7 +15,7 @@ type Props = {
 };
 const TRANSITION_SECONDS = 0.2;
 const INITIAL_POSITION = { index: 0, complete: false, reveal: false };
-const CONTROL_CLASS = 'rounded border border-white/20 bg-white/5 px-4 py-2 text-sm text-stone-200 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-stone-300 disabled:opacity-30';
+const CONTROL_CLASS = 'shrink-0 whitespace-nowrap rounded border border-white/20 bg-white/5 px-4 py-2 text-sm text-stone-200 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-stone-300 disabled:opacity-30';
 
 export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex, onClose }: Props) {
   const [open, setOpen] = useState(false);
@@ -143,7 +143,7 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
           </header>
           <div className="flex min-h-0 flex-1 flex-col justify-end px-4 pb-4 md:px-[8vw] md:pb-8">
             <div className="relative min-h-0 w-full max-w-6xl self-center">
-              <div className="relative h-[clamp(0rem,calc(100dvh-22rem),32vh)] md:h-[clamp(0rem,calc(100dvh-24rem),40vh)]" aria-hidden="true">
+              <div className="relative h-[clamp(0rem,calc(100dvh-22rem),40vh)] md:h-[clamp(0rem,calc(100dvh-24rem),40vh)]" aria-hidden="true">
                 <AnimatePresence initial={false}>
                   {!isNarration && entry.avatarSrc && (
                     <motion.div
@@ -152,9 +152,9 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: reducedMotion ? 0 : TRANSITION_SECONDS }}
-                      className="absolute inset-y-0 left-2 w-[55vw] max-w-sm md:left-8 md:w-[28vw]"
+                      className="absolute inset-y-0 inset-x-0 mx-auto w-[72vw] max-w-md md:inset-x-auto md:left-8 md:mx-0 md:w-[28vw] md:max-w-sm"
                     >
-                      <Image src={entry.avatarSrc} alt="" fill sizes="(min-width: 48rem) 28vw, 55vw" unoptimized className="object-contain object-bottom" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
+                      <Image src={entry.avatarSrc} alt="" fill sizes="(min-width: 48rem) 28vw, 72vw" unoptimized className="object-contain object-bottom" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -180,9 +180,12 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
               </section>
             </div>
           </div>
-          <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-4 pb-4 md:px-[8vw] md:pb-6">
-            <p id="cinematic-help" className="text-xs text-stone-400">클릭·터치 / Space·Enter 다음 · ← 이전</p>
-            <div className="flex gap-2">
+          <footer className="flex shrink-0 items-center justify-between gap-3 px-4 pb-4 md:px-[8vw] md:pb-6">
+            <p id="cinematic-help" className="min-w-0 text-xs text-stone-400">
+              <span className="md:hidden">터치로 다음</span>
+              <span className="hidden md:inline">클릭·터치 / Space·Enter 다음 · ← 이전</span>
+            </p>
+            <div className="flex shrink-0 gap-2">
               <button type="button" onClick={previous} disabled={position.index === 0} className={CONTROL_CLASS}>이전</button>
               <button type="button" onClick={lastEntry && position.complete ? close : advance} className={CONTROL_CLASS}>{lastEntry && position.complete ? '감상 마치기' : position.complete ? '다음' : '전체 표시'}</button>
             </div>
