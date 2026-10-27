@@ -58,17 +58,17 @@ export function resolveRoll20Continuations(entries: LogEntry[]): LogEntry[] {
 }
 
 export function createCinematicEntries(entries: LogEntry[], avatarMap: Record<string, string>): LogEntry[] {
-  const withPortraits = entries.reduce<LogEntry[]>((resolved, entry) => {
+  // Hidden channels must not interrupt the speaker visible in the cinematic.
+  const visibleEntries = entries.filter((entry) => !entry.isAside && !entry.isWhisper);
+  const withPortraits = visibleEntries.reduce<LogEntry[]>((resolved, entry) => {
     const previous = resolved.at(-1);
     const sameSpeaker = entry.speaker && entry.speaker === previous?.speaker &&
       entry.kind === 'chat' && previous.kind === 'chat' &&
-      !entry.isNarrator && !previous.isNarrator &&
-      entry.isAside === previous.isAside && entry.isWhisper === previous.isWhisper &&
-      entry.whisperTo === previous.whisperTo;
+      !entry.isNarrator && !previous.isNarrator;
     resolved.push({ ...entry, avatarSrc: entry.avatarSrc || (sameSpeaker ? previous.avatarSrc : null) || avatarMap[entry.speaker] || null });
     return resolved;
   }, []);
-  return withPortraits.filter((entry) => !entry.isAside && !entry.isWhisper).flatMap((entry) => {
+  return withPortraits.flatMap((entry) => {
     // CCA groups original messages into .ln elements under one portrait.
     // Split only those explicit message boundaries; keep <br> within a message.
     const lines = entry.cinematicLines?.length ? entry.cinematicLines : [entry.contentHtml];

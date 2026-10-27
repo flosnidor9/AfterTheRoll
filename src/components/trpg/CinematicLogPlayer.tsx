@@ -154,7 +154,7 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
                       transition={{ duration: reducedMotion ? 0 : TRANSITION_SECONDS }}
                       className="absolute inset-y-0 inset-x-0 mx-auto w-[72vw] max-w-md md:inset-x-auto md:left-8 md:mx-0 md:w-[28vw] md:max-w-sm"
                     >
-                      <Image src={entry.avatarSrc} alt="" fill sizes="(min-width: 48rem) 28vw, 72vw" unoptimized className="object-contain object-bottom" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
+                      <Image key={entry.avatarSrc} src={entry.avatarSrc} alt="" fill sizes="(min-width: 48rem) 28vw, 72vw" unoptimized className="object-contain object-bottom" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
                     </motion.div>
                   )}
                 </AnimatePresence>

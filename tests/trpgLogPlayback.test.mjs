@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { resolveRoll20AssetUrl } from '../src/lib/trpgLogAssets.ts';
 import { createCinematicEntries, createReaderEntries, resolveRoll20Continuations, findPlaybackPage, findTopPlaybackIndex, mergeConsecutiveCharacterEntries, pinnedToolbarTop, playbackLineId } from '../src/lib/trpgLogPlayback.ts';
 
 const message = (id, overrides = {}) => ({
@@ -11,6 +12,28 @@ const message = (id, overrides = {}) => ({
   isAside: false,
   isWhisper: false,
   ...overrides,
+});
+
+test('Roll20 portraits without a src never resolve to the log HTML URL', () => {
+  const htmlUrl = 'http://localhost:3000/trpg-logs/images/afterTheRoll/2026/scenario/part-one.source.html';
+  const source = [
+    message('one', { avatarSrc: resolveRoll20AssetUrl('media/med-001.png', htmlUrl) }),
+    message('two', { avatarSrc: resolveRoll20AssetUrl('', htmlUrl) || null }),
+    message('three', { avatarSrc: resolveRoll20AssetUrl('   ', htmlUrl) || null }),
+  ];
+  assert.equal(source[1].avatarSrc, null);
+  assert.equal(source[2].avatarSrc, null);
+  const playback = createCinematicEntries(resolveRoll20Continuations(source), {});
+  assert.ok(playback.every((entry) => entry.avatarSrc === new URL('media/med-001.png', htmlUrl).href));
+});
+
+test('Roll20 portrait URLs retain relative media and corrupted-folder repair behavior', () => {
+  const htmlUrl = '/trpg-logs/images/afterTheRoll/2026/scenario/part-one.source.html';
+  const origin = 'http://localhost:3000';
+  const expected = `${origin}/trpg-logs/images/afterTheRoll/2026/scenario/media/med-001.png`;
+  assert.equal(resolveRoll20AssetUrl('media/med-001.png', htmlUrl, origin), expected);
+  assert.equal(resolveRoll20AssetUrl('/images/afterTheRoll/corrupted/media/med-001.png', htmlUrl, origin), expected);
+  assert.equal(resolveRoll20AssetUrl('https://example.com/portrait.png', htmlUrl, origin), 'https://example.com/portrait.png');
 });
 
 test('reading view grouping never changes or duplicates source playback messages', () => {
@@ -59,6 +82,25 @@ test('ordinary multi-line messages keep their line breaks and only missing portr
 
 test('aside and whisper messages stay outside cinematic playback', () => {
   assert.equal(createCinematicEntries([message('one', { isAside: true }), message('two', { isWhisper: true })], {}).length, 0);
+});
+
+test('cinematic portraits persist for the same visible speaker across hidden channels', () => {
+  const source = [
+    message('one', { avatarSrc: '/smile.png' }),
+    message('aside', { speaker: 'Other', isAside: true }),
+    message('two', { avatarSrc: null }),
+    message('whisper', { avatarSrc: '/secret.png', isWhisper: true, whisperTo: 'GM' }),
+    message('three', { avatarSrc: null, whisperTo: 'main' }),
+    message('four', { avatarSrc: '/neutral.png' }),
+    message('five', { avatarSrc: null }),
+    message('other', { speaker: 'Other', avatarSrc: null }),
+  ];
+  const before = structuredClone(source);
+  const playback = createCinematicEntries(source, {});
+  assert.deepEqual(playback.map((entry) => entry.avatarSrc), [
+    '/smile.png', '/smile.png', '/smile.png', '/neutral.png', '/neutral.png', null,
+  ]);
+  assert.deepEqual(source, before);
 });
 
 test('playback returns to the page containing the original message inside a merged group', () => {

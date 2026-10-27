@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { TrpgCastEntry } from '@/lib/data/trpg';
 import { expandCcaArchive } from '@/lib/ccaArchive';
+import { resolveRoll20AssetUrl } from '@/lib/trpgLogAssets';
 import CinematicLogPlayer from './CinematicLogPlayer';
 import StickyLogToolbar from './StickyLogToolbar';
 import { createCinematicEntries, createReaderEntries, resolveRoll20Continuations, findPlaybackPage, findTopPlaybackIndex, playbackLineId } from '@/lib/trpgLogPlayback';
@@ -450,21 +451,6 @@ function parseIcecandyRoll20Entries(html: string): LogEntry[] {
       };
     })
     .filter((entry): entry is LogEntry => Boolean(entry));
-}
-
-function resolveRoll20AssetUrl(value: string, htmlUrl: string | undefined): string {
-  if (!htmlUrl) return value;
-
-  const baseUrl = new URL(htmlUrl, window.location.origin);
-  const mediaMatch = value.match(/^\/images\/afterTheRoll\/.+?\/media\/(.+)$/i);
-
-  // Some Roll20 exports retain a mojibake folder name in absolute asset URLs.
-  // The log HTML itself is in the correct folder, so resolve its media folder
-  // from that trusted location instead of the corrupted path in the export.
-  if (mediaMatch) return new URL(`media/${mediaMatch[1]}`, baseUrl).toString();
-
-  if (/^(?:[a-z][a-z\d+.-]*:|\/|#)/i.test(value)) return value;
-  return new URL(value, baseUrl).toString();
 }
 
 function resolveSourceAssetUrls(node: HTMLElement, htmlUrl: string | undefined) {
