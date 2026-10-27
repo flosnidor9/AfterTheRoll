@@ -214,7 +214,10 @@ function getLocalTrpgMasterKey(): string | null {
 
 function getLocalTrpgPasswords(): Record<string, string> | null {
   const plainPasswordsPath = path.join(process.cwd(), 'passwords.json');
-  const encryptedPasswordsPath = path.join(process.cwd(), 'passwords.enc.json');
+  const stagedPasswordsPath = path.join(process.cwd(), 'passwords.enc.json');
+  const encryptedPasswordsPath = fs.existsSync(stagedPasswordsPath)
+    ? stagedPasswordsPath
+    : path.resolve(process.env.TRPG_LOGS_PATH ?? path.join(process.cwd(), '..', 'Trpg-Logs'), 'passwords.enc.json');
   let localPasswords: Record<string, string> | null = null;
 
   try {

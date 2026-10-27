@@ -160,7 +160,9 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
                 </AnimatePresence>
               </div>
               <section className="relative flex max-h-[46vh] min-h-[12rem] flex-col rounded-lg border border-white/15 bg-[#17191c]/85 p-5 md:min-h-[14rem] md:p-8">
-                <p className="mb-3 shrink-0 text-sm font-medium tracking-wide text-[#c4b7a8] md:text-base">{isNarration ? '지문' : entry.speaker}</p>
+                {!isNarration && (
+                  <p className="mb-3 shrink-0 text-sm font-medium tracking-wide text-[#c4b7a8] md:text-base">{entry.speaker}</p>
+                )}
                 <motion.div
                   key={entry.id}
                   ref={textRef}

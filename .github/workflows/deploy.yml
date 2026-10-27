@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'passwords.enc.json'
   repository_dispatch:
     types:
       - trpg-logs-updated
@@ -34,6 +32,7 @@ jobs:
 
       - name: Copy TRPG logs
         run: |
+          cp trpg-logs/passwords.enc.json passwords.enc.json
           rm -rf public/images/afterTheRoll
           rm -rf public/images/characters
           mkdir -p public/images

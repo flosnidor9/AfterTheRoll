@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import TrpgLogReader from './TrpgLogReader';
 import type { TrpgCastEntry } from '@/lib/data/trpg';
 import { expandCcaArchive } from '@/lib/ccaArchive';
+import { useAuth } from '@/contexts/AuthContext';
+import AdminLogPasswordRecovery from './AdminLogPasswordRecovery';
 
 type EncryptedData = {
   salt: string;
@@ -15,6 +17,7 @@ type EncryptedData = {
 
 type Props = {
   encryptedUrl: string;
+  passwordKey: string;
   fallbackAvatarSrc?: string;
   gmName?: string;
   cast?: TrpgCastEntry[];
@@ -55,7 +58,8 @@ async function decryptContent(data: EncryptedData, password: string): Promise<st
   return new TextDecoder().decode(decrypted);
 }
 
-export default function EncryptedTrpgLogReader({ encryptedUrl, fallbackAvatarSrc, gmName, cast, mainChannels, whisperChannels }: Props) {
+export default function EncryptedTrpgLogReader({ encryptedUrl, passwordKey, fallbackAvatarSrc, gmName, cast, mainChannels, whisperChannels }: Props) {
+  const { isAdmin, user } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isEmpty, setIsEmpty] = useState(true);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
@@ -142,6 +146,7 @@ export default function EncryptedTrpgLogReader({ encryptedUrl, fallbackAvatarSrc
           {loading ? '확인 중...' : '입장'}
         </motion.button>
       </form>
+      {isAdmin && user?.emailVerified && <AdminLogPasswordRecovery key={`${user.uid}/${passwordKey}`} passwordKey={passwordKey} />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { pbkdf2Sync, createDecipheriv } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { passwordArchivePath } from './trpg-password-path.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, '..');
@@ -14,7 +15,7 @@ if (!masterKey) {
   process.exit(1);
 }
 
-const encPath = path.join(rootDir, 'passwords.enc.json');
+const encPath = passwordArchivePath;
 if (!fs.existsSync(encPath)) {
   console.error('passwords.enc.json 없음');
   process.exit(1);

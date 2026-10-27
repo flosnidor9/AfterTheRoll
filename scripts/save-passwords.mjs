@@ -4,6 +4,7 @@ import { pbkdf2Sync, createCipheriv, randomBytes } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { passwordArchivePath } from './trpg-password-path.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, '..');
@@ -34,9 +35,9 @@ const ciphertext = Buffer.concat([cipher.update(raw, 'utf8'), cipher.final()]);
 const authTag = cipher.getAuthTag();
 
 fs.writeFileSync(
-  path.join(rootDir, 'passwords.enc.json'),
+  passwordArchivePath,
   JSON.stringify({ salt: salt.toString('hex'), iv: iv.toString('hex'), ciphertext: ciphertext.toString('hex'), authTag: authTag.toString('hex') }, null, 2),
 );
 
-console.log('✓ passwords.enc.json 생성 완료 → 이 파일을 커밋하세요');
+console.log('✓ passwords.enc.json 생성 완료 → 비공개 Trpg-Logs 저장소에만 저장하세요');
 console.log('⚠  passwords.json 은 절대 커밋하지 마세요');

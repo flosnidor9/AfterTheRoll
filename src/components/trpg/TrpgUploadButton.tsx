@@ -663,7 +663,7 @@ export default function TrpgUploadButton() {
               <p className="afterroll-meta mt-[0.8rem] text-[0.72rem] text-[var(--ledger-soft)]">발화자 후보를 찾지 못했습니다. 이 파일은 CAST 없이 저장됩니다.</p>
             ) : null}
             <Field label="설명"><textarea value={description} onChange={(event) => { const nextDescription = event.target.value; setDescription(nextDescription); setIsDescriptionManual(nextDescription !== generatedDescriptionRef.current); }} rows={3} /></Field>
-            <div className="mt-[0.8rem] border-t border-[var(--atr-line)] pt-[0.8rem]"><Field label="GitHub access token"><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="fine-grained token (Contents: Read and write)" autoComplete="off" /><p className="mt-[0.3rem] text-[0.72rem] text-[var(--ledger-soft)]">토큰과 마스터키는 저장하지 않습니다. 배포를 위해 두 저장소의 Contents 읽기·쓰기 권한이 필요합니다.</p></Field></div>
+            <div className="mt-[0.8rem] border-t border-[var(--atr-line)] pt-[0.8rem]"><Field label="GitHub access token"><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="fine-grained token (Contents: Read and write)" autoComplete="off" /><p className="mt-[0.3rem] text-[0.72rem] text-[var(--ledger-soft)]">토큰과 마스터키는 저장하지 않습니다. 비공개 로그 저장소의 Contents 읽기·쓰기 권한이 필요합니다.</p></Field></div>
             {previewPath ? <p className="afterroll-meta mt-[0.8rem] text-[0.72rem] text-[var(--ledger-soft)]">저장 위치: {previewPath}</p> : null}
             {status ? <p className="mt-[0.8rem] whitespace-pre-wrap break-words text-[0.86rem] text-[var(--ledger-muted)]" role="status">{status}</p> : null}
             {hoveredImageSource ? (

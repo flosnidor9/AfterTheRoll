@@ -1,5 +1,4 @@
 export const TRPG_UPLOAD_REPOSITORY = 'flosnidor9/Trpg-Logs';
-const TRPG_SITE_REPOSITORY = 'flosnidor9/AfterTheRoll';
 const TRPG_UPLOAD_ROOT = 'public/images/afterTheRoll';
 
 export type TrpgUploadCastEntry = {
@@ -288,7 +287,7 @@ async function deriveKey(password: string, salt: Uint8Array, usage: KeyUsage[]) 
   );
 }
 
-async function decryptWithMasterKey(data: EncryptedData, masterKey: string) {
+export async function decryptWithMasterKey(data: EncryptedData, masterKey: string) {
   const ciphertext = hexToBytes(data.ciphertext);
   const authTag = hexToBytes(data.authTag);
   const combined = new Uint8Array(ciphertext.length + authTag.length);
@@ -392,10 +391,13 @@ export async function resolveTrpgUploadTitle(token: string, draft: TrpgUploadDra
 }
 
 export async function saveTrpgPassword(token: string, masterKey: string, passwordKey: string, password?: string) {
-  const response = await fetch(githubContentsUrl(TRPG_SITE_REPOSITORY, 'passwords.enc.json'), {
+  const { loadTrpgPasswordArchive, saveTrpgPasswordArchive } = await import('@/lib/data/firebaseTrpgPasswords');
+  // Verify server-side permission before changing the private backup.
+  await loadTrpgPasswordArchive();
+  const response = await fetch(githubContentsUrl(TRPG_UPLOAD_REPOSITORY, 'passwords.enc.json'), {
     headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}` },
   });
-  if (!response.ok) throw new Error('비밀번호 목록을 불러오지 못했습니다. 업로드 토큰에 메인 사이트 저장소 권한이 있는지 확인해 주세요.');
+  if (!response.ok) throw new Error('비공개 로그 저장소의 비밀번호 목록을 불러오지 못했습니다. passwords.enc.json 이전과 토큰 권한을 확인해 주세요.');
 
   const file = (await response.json()) as { content?: string; sha?: string };
   if (!file.content || !file.sha) throw new Error('암호화된 비밀번호 목록 형식이 올바르지 않습니다.');
@@ -408,13 +410,19 @@ export async function saveTrpgPassword(token: string, masterKey: string, passwor
   }
   if (password) passwords[passwordKey] = password;
   else delete passwords[passwordKey];
-  const content = JSON.stringify(await encryptWithMasterKey(JSON.stringify(passwords, null, 2), masterKey), null, 2);
-  const saveResponse = await fetch(githubContentsUrl(TRPG_SITE_REPOSITORY, 'passwords.enc.json'), {
+  const encryptedArchive = await encryptWithMasterKey(JSON.stringify(passwords, null, 2), masterKey);
+  const content = JSON.stringify(encryptedArchive, null, 2);
+  const saveResponse = await fetch(githubContentsUrl(TRPG_UPLOAD_REPOSITORY, 'passwords.enc.json'), {
     method: 'PUT',
     headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: `${password ? 'Save' : 'Remove'} password for TRPG log: ${passwordKey}`, content: encodeUtf8Base64(content), sha: file.sha }),
   });
   if (!saveResponse.ok) throw new Error('암호화된 비밀번호 목록을 저장하지 못했습니다.');
+  try {
+    await saveTrpgPasswordArchive(encryptedArchive);
+  } catch {
+    throw new Error('비공개 저장소에는 저장했지만 관리자 보관함 동기화에 실패했습니다. 비공개 저장소의 최신 passwords.enc.json으로 보관함을 갱신해야 합니다.');
+  }
 }
 
 async function ensureAtomicUploadPathsAreAvailable(token: string, files: UploadFile[]) {

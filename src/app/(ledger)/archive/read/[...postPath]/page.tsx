@@ -129,6 +129,7 @@ export default async function TrpgReadPage({ params }: Props) {
           {shouldUseEncryptedReader ? (
             <EncryptedTrpgLogReader
               encryptedUrl={post.htmlUrl}
+              passwordKey={`${resolved.folderSlug}/${resolved.postSlug}`}
               fallbackAvatarSrc={post.gmIconSrc}
               gmName={post.gmName}
               cast={post.cast}

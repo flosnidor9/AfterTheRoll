@@ -29,6 +29,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+firestore-debug.log
+firebase-debug.log
 .pnpm-debug.log*
 
 # Local headless-browser profiles used while checking TRPG logs.
@@ -37,8 +39,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*.local
 
-# 로그 비밀번호 원본 (passwords.enc.json 만 커밋할 것)
+# 비밀번호 원본과 암호문은 공개 저장소에 커밋하지 않습니다.
 passwords.json
+passwords.enc.json
 
 # TRPG 원본 로그/이미지 (private Trpg-Logs 저장소에서 빌드 시 복사)
 /public/images/afterTheRoll/
