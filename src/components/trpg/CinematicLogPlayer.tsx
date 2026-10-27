@@ -147,7 +147,7 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
                 <AnimatePresence initial={false}>
                   {!isNarration && entry.avatarSrc && (
                     <motion.div
-                      key={entry.avatarSrc}
+                      key={entry.speaker}
                       initial={{ opacity: 0, y: reducedMotion ? 0 : '0.75rem' }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
