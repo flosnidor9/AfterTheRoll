@@ -38,8 +38,37 @@ export function mergeConsecutiveCharacterEntries(entries: LogEntry[]): LogEntry[
   }, []);
 }
 
+/** Roll20 may omit the name, portrait, or both on successive chat messages. */
+export function resolveRoll20Continuations(entries: LogEntry[]): LogEntry[] {
+  return entries.reduce<LogEntry[]>((resolved, entry) => {
+    const previous = resolved.at(-1);
+    const continuesSpeaker = previous && entry.kind === 'chat' && previous.kind === 'chat' &&
+      !entry.isNarrator && !previous.isNarrator && Boolean(previous.speaker) &&
+      (!entry.speaker || entry.speaker === previous.speaker) &&
+      entry.isAside === previous.isAside && entry.isWhisper === previous.isWhisper &&
+      entry.whisperTo === previous.whisperTo;
+    resolved.push(continuesSpeaker ? {
+      ...entry,
+      speaker: entry.speaker || previous.speaker,
+      avatarSrc: entry.avatarSrc || previous.avatarSrc,
+      whisperFrom: entry.whisperFrom || previous.whisperFrom,
+    } : { ...entry });
+    return resolved;
+  }, []);
+}
+
 export function createCinematicEntries(entries: LogEntry[], avatarMap: Record<string, string>): LogEntry[] {
-  return entries.filter((entry) => !entry.isAside && !entry.isWhisper).flatMap((entry) => {
+  const withPortraits = entries.reduce<LogEntry[]>((resolved, entry) => {
+    const previous = resolved.at(-1);
+    const sameSpeaker = entry.speaker && entry.speaker === previous?.speaker &&
+      entry.kind === 'chat' && previous.kind === 'chat' &&
+      !entry.isNarrator && !previous.isNarrator &&
+      entry.isAside === previous.isAside && entry.isWhisper === previous.isWhisper &&
+      entry.whisperTo === previous.whisperTo;
+    resolved.push({ ...entry, avatarSrc: entry.avatarSrc || (sameSpeaker ? previous.avatarSrc : null) || avatarMap[entry.speaker] || null });
+    return resolved;
+  }, []);
+  return withPortraits.filter((entry) => !entry.isAside && !entry.isWhisper).flatMap((entry) => {
     // CCA groups original messages into .ln elements under one portrait.
     // Split only those explicit message boundaries; keep <br> within a message.
     const lines = entry.cinematicLines?.length ? entry.cinematicLines : [entry.contentHtml];

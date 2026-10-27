@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createCinematicEntries, createReaderEntries, findPlaybackPage, findTopPlaybackIndex, mergeConsecutiveCharacterEntries, pinnedToolbarTop, playbackLineId } from '../src/lib/trpgLogPlayback.ts';
+import { createCinematicEntries, createReaderEntries, resolveRoll20Continuations, findPlaybackPage, findTopPlaybackIndex, mergeConsecutiveCharacterEntries, pinnedToolbarTop, playbackLineId } from '../src/lib/trpgLogPlayback.ts';
 
 const message = (id, overrides = {}) => ({
   id,
@@ -124,4 +124,41 @@ test('toolbar stays in its original slot before scrolling and pins at the viewpo
 test('wrapped mobile toolbar stays within the reader at the end of the log', () => {
   assert.equal(pinnedToolbarTop(-100, 120, 100), 0);
   assert.equal(pinnedToolbarTop(-100, 60, 100), -40);
+});
+
+
+test('Roll20 retains the last expression when the name, portrait, or both are omitted', () => {
+  const source = [message('one'), message('two', { avatarSrc: null }),
+    message('three', { speaker: '', avatarSrc: null }),
+    message('four', { avatarSrc: '/smile.png' }), message('five', { avatarSrc: null })];
+  const before = structuredClone(source);
+  const restored = resolveRoll20Continuations(source);
+  const playback = createCinematicEntries(restored, { Character: '/fallback.png' });
+  assert.deepEqual(playback.map((entry) => entry.avatarSrc),
+    ['/neutral.png', '/neutral.png', '/neutral.png', '/smile.png', '/smile.png']);
+  assert.ok(playback.every((entry) => entry.speaker === 'Character'));
+  assert.deepEqual(source, before);
+});
+
+test('portrait inheritance stops at another speaker, narration, or a different channel', () => {
+  for (const boundary of [
+    { speaker: 'Other', avatarSrc: null },
+    { kind: 'media', speaker: '', avatarSrc: null },
+    { isNarrator: true, avatarSrc: null },
+    { isAside: true, avatarSrc: null },
+    { isWhisper: true, whisperTo: 'GM', avatarSrc: null },
+  ]) {
+    const restored = resolveRoll20Continuations([message('one'), message('two', boundary)]);
+    assert.equal(restored[1].avatarSrc, null);
+    assert.equal(createCinematicEntries(restored, {}).at(-1)?.avatarSrc,
+      boundary.isAside || boundary.isWhisper ? '/neutral.png' : null);
+  }
+});
+
+test('cinematic playback keeps Roll20 dice tables intact and inherits consecutive portraits', () => {
+  const table = '<div class="sheet-rolltemplate-coc"><table><caption>Dice roll</caption><tbody><tr><td>1d100</td><td class="inlinerollresult fullcrit">5</td></tr></tbody></table></div>';
+  const source = [message('one'), message('two', { contentHtml: table, avatarSrc: null }), message('three', { avatarSrc: null })];
+  const playback = createCinematicEntries(source, {});
+  assert.equal(playback[1].contentHtml, table);
+  assert.deepEqual(playback.map((entry) => entry.avatarSrc), ['/neutral.png', '/neutral.png', '/neutral.png']);
 });

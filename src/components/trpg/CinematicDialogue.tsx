@@ -1,6 +1,8 @@
 'use client';
 
 import DOMPurify from 'dompurify';
+import './logTemplates.css';
+import { ensureReadableLogColors } from '@/lib/trpgLogColors';
 import { useEffect, useRef } from 'react';
 import { useReducedMotion } from 'framer-motion';
 
@@ -22,14 +24,21 @@ export default function CinematicDialogue({ html, reveal, preserveLineBreaks, on
     if (!content) return;
     content.innerHTML = DOMPurify.sanitize(html, {
       FORBID_TAGS: ['style'],
-      FORBID_ATTR: ['style', 'class', 'color', 'bgcolor', 'width', 'height'],
+      FORBID_ATTR: ['width', 'height'],
     });
+    // Images are part of playback, so remove their navigation links in this view.
+    content.querySelectorAll('a').forEach((link) => {
+      if (link.querySelector('img, picture')) link.replaceWith(...link.childNodes);
+    });
+    ensureReadableLogColors(content);
     // Keep paragraphs, line breaks, images and dice tables intact while revealing text.
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
     const nodes: { node: Node; characters: string[]; start: number }[] = [];
     let total = 0;
     while (walker.nextNode()) {
       const node = walker.currentNode;
+      // A dice result is one visual unit: show the complete table/card immediately.
+      if (node.parentElement?.closest('table, [class*="sheet-rolltemplate-"]')) continue;
       const characters = Array.from(node.textContent ?? '');
       nodes.push({ node, characters, start: total });
       total += characters.length;
@@ -62,7 +71,7 @@ export default function CinematicDialogue({ html, reveal, preserveLineBreaks, on
   return (
     <div
       ref={contentRef}
-      className={`prose prose-invert max-w-none break-words text-base leading-relaxed text-inherit md:text-lg [&_*]:max-w-full [&_a]:underline [&_img]:mx-auto [&_img]:max-h-[35vh] [&_img]:object-contain [&_p]:my-2 [&_table]:w-full ${preserveLineBreaks ? 'whitespace-pre-wrap' : ''}`}
+      className={`trpg-log-format trpg-cinematic-dialogue prose prose-invert max-w-none break-words text-base leading-relaxed text-inherit md:text-lg [&_*]:max-w-full [&_a]:underline [&_img]:mx-auto [&_img]:max-h-[35vh] [&_img]:object-contain [&_p]:my-2 [&_table]:w-full ${preserveLineBreaks ? 'whitespace-pre-wrap' : ''}`}
     />
   );
 }
