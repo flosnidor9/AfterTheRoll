@@ -7,6 +7,10 @@ import { useEffect, useRef } from 'react';
 import { useReducedMotion } from 'framer-motion';
 
 const CHARACTER_INTERVAL_MS = 28;
+const PUNCTUATION_PAUSE_MS: Record<string, number> = {
+  ',': 120,
+  '.': 180,
+};
 
 type Props = {
   html: string;
@@ -34,12 +38,18 @@ export default function CinematicDialogue({ html, reveal, preserveLineBreaks, on
     // Keep paragraphs, line breaks, images and dice tables intact while revealing text.
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
     const nodes: { node: Node; characters: string[]; start: number }[] = [];
+    const revealTimes: number[] = [];
+    let nextRevealAt = CHARACTER_INTERVAL_MS;
     let total = 0;
     while (walker.nextNode()) {
       const node = walker.currentNode;
       // A dice result is one visual unit: show the complete table/card immediately.
       if (node.parentElement?.closest('table, [class*="sheet-rolltemplate-"]')) continue;
       const characters = Array.from(node.textContent ?? '');
+      for (const character of characters) {
+        revealTimes.push(nextRevealAt);
+        nextRevealAt += CHARACTER_INTERVAL_MS + (PUNCTUATION_PAUSE_MS[character] ?? 0);
+      }
       nodes.push({ node, characters, start: total });
       total += characters.length;
     }
@@ -52,9 +62,11 @@ export default function CinematicDialogue({ html, reveal, preserveLineBreaks, on
     let frame: number;
     let startedAt: number | undefined;
     let previousCount = -1;
+    let count = 0;
     const tick = (time: number) => {
       startedAt ??= time;
-      const count = Math.min(total, Math.floor((time - startedAt) / CHARACTER_INTERVAL_MS));
+      const elapsed = time - startedAt;
+      while (count < total && elapsed >= revealTimes[count]) count += 1;
       if (count !== previousCount) {
         for (const { node, characters, start } of nodes) {
           node.textContent = characters.slice(0, Math.max(0, count - start)).join('');
