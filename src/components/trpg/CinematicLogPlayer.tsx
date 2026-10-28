@@ -14,12 +14,26 @@ type Props = {
   onClose: (entry: LogEntry) => void;
 };
 const TRANSITION_SECONDS = 0.2;
+const PLAYBACK_SPEEDS = [
+  { value: 0, label: '0 · 즉시 표시' },
+  { value: 1, label: '1 · 가장 빠르게' },
+  { value: 2, label: '2 · 보통' },
+  { value: 3, label: '3 · 느리게' },
+  { value: 4, label: '4 · 더 느리게' },
+  { value: 5, label: '5 · 가장 느리게' },
+] as const;
+const DEFAULT_PLAYBACK_SPEED = 2;
+const AUTO_ADVANCE_BASE_MS = 1800;
+const AUTO_ADVANCE_CHARACTER_MS = 30;
+const AUTO_ADVANCE_MAX_MS = 10000;
 const INITIAL_POSITION = { index: 0, complete: false, reveal: false };
 const CONTROL_CLASS = 'shrink-0 whitespace-nowrap rounded border border-white/20 bg-white/5 px-4 py-2 text-sm text-stone-200 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-stone-300 disabled:opacity-30';
 
 export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex, onClose }: Props) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState(INITIAL_POSITION);
+  const [playbackSpeed, setPlaybackSpeed] = useState(DEFAULT_PLAYBACK_SPEED);
+  const [autoPlay, setAutoPlay] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
@@ -59,6 +73,31 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
   }, []);
 
   useEffect(() => {
+    if (!open || !autoPlay || !position.complete || lastEntry) return;
+    const characterCount = Array.from(textRef.current?.textContent ?? '').length;
+    const delay = Math.min(AUTO_ADVANCE_MAX_MS, AUTO_ADVANCE_BASE_MS + characterCount * AUTO_ADVANCE_CHARACTER_MS);
+    let elapsed = 0;
+    let previousTime: number | undefined;
+    let frame: number;
+    const tick = (time: number) => {
+      // Pause the reading delay while another tab is active or embedded media plays.
+      const mediaPlaying = Array.from(textRef.current?.querySelectorAll('audio, video') ?? [])
+        .some((media) => media instanceof HTMLMediaElement && !media.paused && !media.ended);
+      if (!document.hidden && !mediaPlaying) elapsed += time - (previousTime ?? time);
+      previousTime = document.hidden || mediaPlaying ? undefined : time;
+      if (elapsed >= delay) advance();
+      else frame = requestAnimationFrame(tick);
+    };
+    const resetClock = () => { previousTime = undefined; };
+    document.addEventListener('visibilitychange', resetClock);
+    frame = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('visibilitychange', resetClock);
+    };
+  }, [open, autoPlay, position, lastEntry, advance]);
+
+  useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -76,7 +115,7 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
         event.preventDefault();
         close();
       } else if (event.key === 'Tab') {
-        const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], [tabindex="0"]') ?? []);
+        const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]') ?? []);
         const first = controls[0];
         const last = controls.at(-1);
         if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last?.focus(); }
@@ -131,15 +170,26 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
           style={{ '--trpg-log-font-family': fontFamily } as CSSProperties}
           className="trpg-cinematic-player fixed inset-0 z-[9999] flex h-[100dvh] w-full flex-col overflow-hidden bg-[#242629] text-[#e4e0da] outline-none"
           onClick={(event) => {
-            if (event.target instanceof Element && event.target.closest('button, a, audio, video')) return;
+            if (event.target instanceof Element && event.target.closest('button, a, audio, video, input, select, textarea, label')) return;
             if (window.getSelection()?.toString()) return;
             dialogRef.current?.focus();
             advance();
           }}
         >
-          <header className="flex shrink-0 items-center justify-between gap-4 p-4 md:px-8 md:py-6">
+          <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 p-4 md:px-8 md:py-6">
             <p className="text-sm tracking-widest text-stone-400" aria-live="off">{position.index + 1} / {entries.length}</p>
-            <button type="button" onClick={close} className={CONTROL_CLASS}>닫기 <span className="hidden md:inline">· Esc</span></button>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-stone-400">
+                <span>속도</span>
+                <select value={playbackSpeed} onChange={(event) => setPlaybackSpeed(Number(event.target.value))} className={CONTROL_CLASS}>
+                  {PLAYBACK_SPEEDS.map(({ value, label }) => <option key={value} value={value} className="bg-[#242629] text-stone-200">{label}</option>)}
+                </select>
+              </label>
+              <button type="button" aria-pressed={autoPlay} onClick={() => setAutoPlay((current) => !current)} className={`${CONTROL_CLASS} aria-pressed:border-stone-400 aria-pressed:bg-white/15`}>
+                자동재생 {autoPlay ? '켜짐' : '꺼짐'}
+              </button>
+              <button type="button" onClick={close} className={CONTROL_CLASS}>닫기 <span className="hidden md:inline">· Esc</span></button>
+            </div>
           </header>
           <div className="flex min-h-0 flex-1 flex-col justify-end px-4 pb-4 md:px-[8vw] md:pb-8">
             <div className="relative min-h-0 w-full max-w-6xl self-center">
@@ -174,9 +224,9 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
                   tabIndex={0}
                   aria-label="현재 대사"
                 >
-                  <CinematicDialogue html={entry.contentHtml} reveal={position.reveal} preserveLineBreaks={entry.preserveLineBreaks} onComplete={complete} />
+                  <CinematicDialogue html={entry.contentHtml} reveal={position.reveal} playbackSpeed={playbackSpeed} preserveLineBreaks={entry.preserveLineBreaks} onComplete={complete} />
                 </motion.div>
-                <p role="status" className="mt-4 shrink-0 text-right text-xs text-stone-400">{position.complete ? (lastEntry ? '마지막 대사입니다' : '클릭하여 다음 대사 ▸') : '클릭하면 대사 전체 표시'}</p>
+                <p role="status" className="mt-4 shrink-0 text-right text-xs text-stone-400">{position.complete ? (lastEntry ? '마지막 대사입니다' : autoPlay ? '잠시 후 다음 대사로 넘어갑니다' : '클릭하여 다음 대사 ▸') : '클릭하면 대사 전체 표시'}</p>
               </section>
             </div>
           </div>

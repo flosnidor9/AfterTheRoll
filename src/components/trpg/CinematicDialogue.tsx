@@ -6,22 +6,26 @@ import { ensureReadableLogColors } from '@/lib/trpgLogColors';
 import { useEffect, useRef } from 'react';
 import { useReducedMotion } from 'framer-motion';
 
-const CHARACTER_INTERVAL_MS = 28;
+const CHARACTER_INTERVAL_MS = 14;
 const PUNCTUATION_PAUSE_MS: Record<string, number> = {
-  ',': 120,
-  '.': 180,
+  ',': 60,
+  '.': 90,
 };
 
 type Props = {
   html: string;
   reveal: boolean;
+  playbackSpeed: number;
   preserveLineBreaks?: boolean;
   onComplete: () => void;
 };
 
-export default function CinematicDialogue({ html, reveal, preserveLineBreaks, onComplete }: Props) {
+export default function CinematicDialogue({ html, reveal, playbackSpeed, preserveLineBreaks, onComplete }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const speedRef = useRef(playbackSpeed);
   const reducedMotion = useReducedMotion();
+
+  useEffect(() => { speedRef.current = playbackSpeed; }, [playbackSpeed]);
 
   useEffect(() => {
     const content = contentRef.current;
@@ -53,19 +57,21 @@ export default function CinematicDialogue({ html, reveal, preserveLineBreaks, on
       nodes.push({ node, characters, start: total });
       total += characters.length;
     }
-    if (reveal || reducedMotion || total === 0) {
+    if (reveal || reducedMotion || speedRef.current === 0 || total === 0) {
       onComplete();
       return;
     }
 
     for (const { node } of nodes) node.textContent = '';
     let frame: number;
-    let startedAt: number | undefined;
+    let previousTime: number | undefined;
+    let elapsed = 0;
     let previousCount = -1;
     let count = 0;
     const tick = (time: number) => {
-      startedAt ??= time;
-      const elapsed = time - startedAt;
+      if (speedRef.current === 0) count = total;
+      else elapsed += (time - (previousTime ?? time)) / speedRef.current;
+      previousTime = time;
       while (count < total && elapsed >= revealTimes[count]) count += 1;
       if (count !== previousCount) {
         for (const { node, characters, start } of nodes) {
