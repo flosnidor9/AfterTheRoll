@@ -4,48 +4,12 @@ import Image from '@/components/ArchiveImage';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { GalleryAlbum, GalleryPhoto } from '@/lib/data/gallery';
+import { makeReaderPages, type PhotoDimensions, type ReaderPage } from '@/lib/galleryPages';
+import { usePhotoDimensions } from './usePhotoDimensions';
 
 type Props = { album: GalleryAlbum; onClose: () => void };
-type PhotoDimensions = Record<string, { width: number; height: number }>;
-type ReaderPage = { photo?: GalleryPhoto; wideHalf?: 'left' | 'right' };
-
-const WIDE_SPREAD_ASPECT_RATIO = 1.65;
 const PAGE_TURN_DURATION = 0.96;
 const PAGE_TURN_EASING = [0.16, 0.72, 0.22, 1] as const;
-
-function isWidePhoto(photo: GalleryPhoto, dimensions: PhotoDimensions) {
-  const size = dimensions[photo.id];
-  return size ? size.width / size.height >= WIDE_SPREAD_ASPECT_RATIO : false;
-}
-
-function makeReaderPages(photos: GalleryPhoto[], dimensions: PhotoDimensions): ReaderPage[] {
-  const pages: ReaderPage[] = [];
-  const remaining = [...photos];
-
-  while (remaining.length > 0) {
-    const photo = remaining.shift()!;
-    if (!isWidePhoto(photo, dimensions)) {
-      pages.push({ photo });
-      continue;
-    }
-
-    // A panorama must begin on a left leaf. Pull the next single image forward
-    // to fill an unfinished spread before it, rather than splitting the panorama
-    // across two page turns.
-    if (pages.length % 2 !== 0) {
-      const nextSingleIndex = remaining.findIndex((candidate) => !isWidePhoto(candidate, dimensions));
-      const nextSingle = nextSingleIndex === -1 ? undefined : remaining.splice(nextSingleIndex, 1)[0];
-      pages.push(nextSingle ? { photo: nextSingle } : {});
-    }
-
-    pages.push(
-      { photo, wideHalf: 'left' },
-      { photo, wideHalf: 'right' },
-    );
-  }
-
-  return pages;
-}
 
 function PhotoPage({ album, dimensions, page, side }: { album: GalleryAlbum; dimensions: PhotoDimensions; page?: ReaderPage; side: 'left' | 'right' }) {
   const photo = page?.photo;
@@ -132,13 +96,7 @@ export default function AlbumReader({ album, onClose }: Props) {
   const [direction, setDirection] = useState(1);
   const [turning, setTurning] = useState(false);
   const [targetSpreadRevealed, setTargetSpreadRevealed] = useState(false);
-  const [dimensions, setDimensions] = useState<PhotoDimensions>(() =>
-    Object.fromEntries(
-      album.photos
-        .filter((p) => p.width && p.height)
-        .map((p) => [p.id, { width: p.width!, height: p.height! }])
-    )
-  );
+  const dimensions = usePhotoDimensions(album.photos);
   const readerPages = useMemo(() => makeReaderPages(album.photos, dimensions), [album.photos, dimensions]);
   const maxPage = Math.max(0, Math.ceil(readerPages.length / 2) - 1);
   const currentPage = Math.min(page, maxPage);
@@ -150,22 +108,6 @@ export default function AlbumReader({ album, onClose }: Props) {
   const isWideSpread = leftPage?.wideHalf === 'left'
     && rightPage?.wideHalf === 'right'
     && leftPage.photo?.id === rightPage.photo?.id;
-
-  useEffect(() => {
-    let cancelled = false;
-    album.photos.forEach((photo) => {
-      const image = new globalThis.Image();
-      image.onload = () => {
-        if (cancelled) return;
-        setDimensions((current) => current[photo.id] ? current : {
-          ...current,
-          [photo.id]: { width: image.naturalWidth, height: image.naturalHeight },
-        });
-      };
-      image.src = photo.src;
-    });
-    return () => { cancelled = true; };
-  }, [album.photos]);
 
   const turnPage = useCallback((next: number) => {
     if (turning || next < 0 || next > maxPage || next === currentPage) return;

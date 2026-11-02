@@ -67,9 +67,9 @@ async function persist(token: string, albums: GalleryAlbum[], files: UploadFile[
   for (let attempt = 0; attempt < RETRIES; attempt += 1) if (await commit(token, all, message, removals)) return;
   throw new Error('다른 저장 작업과 충돌했습니다. 잠시 후 다시 시도해 주세요.');
 }
-export async function createGalleryAlbum(token: string, album: GalleryAlbum, files: File[]) {
+export async function createGalleryAlbum(token: string, album: GalleryAlbum, files: Array<{ photo: GalleryPhoto; file: File }>) {
   const albums = await readArchive(token); if (albums.some((entry) => entry.id === album.id)) throw new Error('같은 앨범 ID가 이미 있습니다.');
-  const uploadFiles = await Promise.all(files.map(async (file, index) => ({ path: `public${album.photos[index].src}`, content: await base64(file), encoding: 'base64' as const })));
+  const uploadFiles = await Promise.all(files.map(async ({ photo, file }) => ({ path: `public${photo.src}`, content: await base64(file), encoding: 'base64' as const })));
   await persist(token, [album, ...albums], uploadFiles, `Add gallery album: ${album.title}`);
 }
 export async function updateGalleryAlbum(token: string, album: GalleryAlbum, newPhotos: Array<{ photo: GalleryPhoto; file: File }>) {

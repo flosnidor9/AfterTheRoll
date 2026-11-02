@@ -2,9 +2,11 @@
 
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Image from '@/components/ArchiveImage';
+import AlbumPhotoEditor from './AlbumPhotoEditor';
+import { PANORAMA_ASPECT_RATIO } from '@/lib/galleryPages';
+import { reorderGalleryPhotos, type PhotoPlacement } from '@/lib/galleryOrder';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   createGalleryAlbum,
@@ -17,7 +19,6 @@ import type { GalleryAlbum, GalleryPhoto } from '@/lib/data/gallery';
 
 const FIELD_CLASS = 'mt-[0.3rem] w-full rounded-[0.3rem] border border-[var(--atr-line)] bg-white px-[0.65rem] py-[0.45rem] text-[0.86rem] text-[var(--atr-text)]';
 const EMPTY_ALBUM: GalleryAlbum = { id: '', title: '', description: '', themeColor: DEFAULT_GALLERY_ALBUM_THEME_COLOR, photos: [], createdAt: '', updatedAt: '' };
-const PANORAMA_ASPECT_RATIO = 1.65;
 
 const makeId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const now = () => new Date().toISOString();
@@ -34,7 +35,6 @@ export default function GalleryManagementActions({ album }: { album?: GalleryAlb
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
   const editing = mode === 'edit';
-  const newPhotos = useMemo(() => newFiles.map(({ photo }) => photo), [newFiles]);
 
   function beginCreate() {
     setMode('create');
@@ -80,6 +80,9 @@ export default function GalleryManagementActions({ album }: { album?: GalleryAlb
     setDraft((current) => ({ ...current, photos: current.photos.filter((photo) => photo.id !== photoId), coverPhotoId: current.coverPhotoId === photoId ? undefined : current.coverPhotoId }));
     setNewFiles((current) => current.filter(({ photo }) => photo.id !== photoId));
   }
+  function movePhoto(photoId: string, targetId: string, placement: PhotoPlacement) {
+    setDraft((current) => ({ ...current, photos: reorderGalleryPhotos(current.photos, photoId, targetId, placement) }));
+  }
   function updatePhoto(photoId: string, changes: Partial<GalleryPhoto>) {
     setDraft((current) => ({
       ...current,
@@ -92,7 +95,7 @@ export default function GalleryManagementActions({ album }: { album?: GalleryAlb
     const album = { ...draft, title: draft.title.trim(), description: draft.description?.trim() || undefined, themeColor: galleryAlbumThemeColor(draft.themeColor), updatedAt: now(), coverPhotoId: draft.coverPhotoId ?? draft.photos[0]?.id };
     try {
       if (editing) await updateGalleryAlbum(token, album, newFiles);
-      else await createGalleryAlbum(token, album, newFiles.map(({ file }) => file));
+      else await createGalleryAlbum(token, album, newFiles);
       setStatus('저장했습니다. 배포 반영 후 갤러리에 표시됩니다.');
       router.refresh();
     } catch (error) { setStatus(error instanceof Error ? error.message : '앨범 저장 중 오류가 발생했습니다.'); }
@@ -116,7 +119,7 @@ export default function GalleryManagementActions({ album }: { album?: GalleryAlb
         <div className="mt-[0.8rem] flex items-end gap-[0.55rem]"><label className="min-w-0 flex-1 text-[0.78rem] text-[var(--atr-muted)]">앨범 제목<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} className={FIELD_CLASS} /></label><div className="shrink-0 text-[0.78rem] text-[var(--atr-muted)]"><span>메인 색상</span><div className="mt-[0.3rem] flex items-center gap-[0.35rem]"><input type="color" value={galleryAlbumThemeColor(draft.themeColor)} onChange={(event) => setDraft({ ...draft, themeColor: event.target.value })} className="album-theme-color-picker block h-[2.25rem] w-[2.25rem] cursor-pointer appearance-none rounded-full border border-[var(--atr-line)] bg-white p-[0.12rem]" aria-label="앨범 메인 색상 선택" /><input type="text" value={draft.themeColor ?? DEFAULT_GALLERY_ALBUM_THEME_COLOR} onChange={(event) => setDraft({ ...draft, themeColor: event.target.value })} onBlur={() => setDraft((current) => ({ ...current, themeColor: galleryAlbumThemeColor(current.themeColor) }))} maxLength={7} spellCheck={false} inputMode="text" placeholder="#c87993" className="h-[2.25rem] w-[7rem] rounded-[0.3rem] border border-[var(--atr-line)] bg-white px-[0.5rem] font-mono text-[0.76rem] uppercase text-[var(--atr-text)]" aria-label="앨범 메인 색상 HEX 코드" /></div></div></div>
         <label className="mt-[0.75rem] block text-[0.78rem] text-[var(--atr-muted)]">설명 (선택)<textarea value={draft.description ?? ''} onChange={(event) => setDraft({ ...draft, description: event.target.value })} rows={3} className={FIELD_CLASS} /></label>
         <div className="mt-[0.75rem]"><input ref={photoInputRef} type="file" accept="image/*" multiple onChange={(event) => addFiles(event.target.files)} className="sr-only" /><motion.button type="button" whileTap={{ scale: 0.98 }} onClick={() => photoInputRef.current?.click()} className="rounded-[0.25rem] border border-[var(--atr-line)] bg-white/60 px-[0.7rem] py-[0.42rem] text-[0.78rem] text-[var(--atr-muted)] hover:bg-white">사진 추가</motion.button></div>
-        <div className="mt-[0.75rem] grid grid-cols-2 gap-[0.5rem] sm:grid-cols-3">{draft.photos.map((photo) => <div key={photo.id} className="rounded-[0.25rem] border border-[var(--atr-line)] p-[0.42rem]"><div className="relative aspect-[4/3] overflow-hidden rounded-[0.16rem] bg-[rgba(200,121,147,0.1)]"><Image src={newFiles.find(({ photo: pending }) => pending.id === photo.id)?.previewSrc ?? photo.src} alt={photo.alt || '앨범 사진'} fill sizes="(max-width: 40rem) 50vw, 12rem" className="object-cover" /></div><p className="mt-[0.35rem] truncate text-[0.68rem] text-[var(--atr-muted)]">{newPhotos.some((item) => item.id === photo.id) ? '새 사진' : photo.alt || '기존 사진'}</p><label className="mt-[0.35rem] block text-[0.62rem] text-[var(--atr-soft)]">설명<input value={photo.alt} onChange={(event) => updatePhoto(photo.id, { alt: event.target.value })} className="mt-[0.12rem] w-full rounded-[0.16rem] border border-[var(--atr-line)] bg-white px-[0.32rem] py-[0.18rem] text-[0.68rem] text-[var(--atr-text)]" /></label><label className="mt-[0.3rem] block text-[0.62rem] text-[var(--atr-soft)]">저작권자<input value={photo.copyright.name} onChange={(event) => updatePhoto(photo.id, { copyright: { ...photo.copyright, name: event.target.value } })} className="mt-[0.12rem] w-full rounded-[0.16rem] border border-[var(--atr-line)] bg-white px-[0.32rem] py-[0.18rem] text-[0.68rem] text-[var(--atr-text)]" /></label><label className="mt-[0.3rem] block text-[0.62rem] text-[var(--atr-soft)]">출처 URL<input type="url" value={photo.copyright.url ?? ''} onChange={(event) => updatePhoto(photo.id, { copyright: { ...photo.copyright, url: event.target.value || undefined } })} className="mt-[0.12rem] w-full rounded-[0.16rem] border border-[var(--atr-line)] bg-white px-[0.32rem] py-[0.18rem] text-[0.68rem] text-[var(--atr-text)]" /></label><div className="mt-[0.35rem] flex gap-[0.4rem]"><button type="button" onClick={() => setDraft({ ...draft, coverPhotoId: photo.id })} className="text-[0.66rem] text-[var(--atr-accent)]">{draft.coverPhotoId === photo.id ? '표지' : '표지로'}</button><button type="button" onClick={() => removePhoto(photo.id)} className="text-[0.66rem] text-[var(--atr-muted)]">제거</button></div></div>)}</div>
+        <AlbumPhotoEditor photos={draft.photos} newFiles={newFiles} coverPhotoId={draft.coverPhotoId ?? draft.photos[0]?.id} saving={saving} onMove={movePhoto} onUpdate={updatePhoto} onRemove={removePhoto} onCover={(id) => setDraft((current) => ({ ...current, coverPhotoId: id }))} />
         <label className="mt-[0.75rem] block text-[0.78rem] text-[var(--atr-muted)]">GitHub access token<input type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" className={FIELD_CLASS} /></label>
         {status ? <p className="mt-[0.8rem] whitespace-pre-wrap text-[0.82rem] text-[var(--atr-muted)]" role="status">{status}</p> : null}
         <div className="mt-[1rem] flex items-center justify-between gap-[0.5rem]"><div>{editing ? <button type="button" onClick={removeAlbum} disabled={saving} className="rounded-[0.25rem] border border-[rgba(166,75,75,0.48)] bg-[rgba(166,75,75,0.08)] px-[0.75rem] py-[0.45rem] text-[0.78rem] text-[rgb(145,62,62)] hover:bg-[rgba(166,75,75,0.15)] disabled:opacity-50">앨범 삭제</button> : null}</div><div className="flex gap-[0.5rem]"><button type="button" onClick={close} className="rounded-[0.25rem] border border-[var(--atr-line)] bg-white/70 px-[0.75rem] py-[0.45rem] text-[0.78rem] text-[var(--atr-muted)] hover:bg-white">취소</button><motion.button type="button" whileTap={{ scale: 0.98 }} onClick={save} disabled={saving} className="ledger-stamp rounded-[0.25rem] px-[0.8rem] py-[0.45rem] text-[0.78rem] disabled:opacity-50">{saving ? '저장 중' : '저장'}</motion.button></div></div>
