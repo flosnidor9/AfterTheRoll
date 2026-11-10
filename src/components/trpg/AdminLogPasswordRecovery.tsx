@@ -7,9 +7,10 @@ import { isEncryptedPasswordArchive, loadTrpgPasswordArchive, saveTrpgPasswordAr
 
 type Props = {
   passwordKey: string;
+  contentLabel?: string;
 };
 
-export default function AdminLogPasswordRecovery({ passwordKey }: Props) {
+export default function AdminLogPasswordRecovery({ passwordKey, contentLabel = '로그' }: Props) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export default function AdminLogPasswordRecovery({ passwordKey }: Props) {
       const entries = passwords as Record<string, unknown>;
       const savedPassword = Object.hasOwn(entries, passwordKey) ? entries[passwordKey] : Object.hasOwn(entries, postSlug) ? entries[postSlug] : undefined;
       if (typeof savedPassword !== 'string' || !savedPassword) {
-        setError('이 로그에 저장된 비밀번호가 없습니다.');
+        setError(`이 ${contentLabel}에 저장된 비밀번호가 없습니다.`);
         return;
       }
       setPassword(savedPassword);
@@ -87,10 +88,10 @@ export default function AdminLogPasswordRecovery({ passwordKey }: Props) {
         <input type="file" accept=".json,application/json" disabled={loading} onChange={(event) => { setArchiveFile(event.target.files?.[0] ?? null); setError(''); }} className="w-full min-w-0 text-sm" />
       </label>}
       <motion.button type="submit" disabled={loading} whileTap={{ scale: 0.99 }} className="ledger-index-tab rounded-[0.5rem] py-[0.75rem] disabled:opacity-40">
-        {loading ? '확인 중...' : '로그 비밀번호 확인'}
+        {loading ? '확인 중...' : `${contentLabel} 비밀번호 확인`}
       </motion.button>
       <div role="status" aria-live="polite" className="break-words">
-        {password !== null && <p>로그 비밀번호: <span className="select-all whitespace-pre-wrap text-[var(--ledger-ink)]">{password}</span></p>}
+        {password !== null && <p>{contentLabel} 비밀번호: <span className="select-all whitespace-pre-wrap text-[var(--ledger-ink)]">{password}</span></p>}
         {error && <p className="text-[var(--atr-warn)]">{error}</p>}
       </div>
     </form>

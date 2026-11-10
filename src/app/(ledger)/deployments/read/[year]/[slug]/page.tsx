@@ -38,7 +38,7 @@ export default async function DeploymentReadPage({ params }: Props) {
           {post.description ? <p className="afterroll-body mt-[0.55rem] text-[1rem] text-[var(--atr-muted)]">{post.description}</p> : null}
         </header>
         <section className="deployment-prose pt-[1.5rem]"><DeploymentMarkdown content={post.content} /></section>
-        {post.privateUrl ? <ProtectedDeploymentContent privateUrl={post.privateUrl} /> : null}
+        {post.privateUrl ? <ProtectedDeploymentContent privateUrl={post.privateUrl} passwordKey={`deployments/${post.year}/${post.slug}/${post.slug}`} /> : null}
         <section className="mt-[2.5rem] border-t border-[var(--atr-line)] pt-[1.5rem]">
           <h2 className="afterroll-title text-[1.45rem] text-[var(--atr-text)]">댓글</h2>
           <div className="mt-[1rem]"><FirebaseGuestbook collectionName={`afterTheRollDeploymentComments_${year}_${slug}`} placeholder="이 글에 대한 말을 남겨 주세요." emptyMessage="첫 댓글을 남겨 보세요." theme="afterroll" threaded likesEnabled resolutionEnabled canDeleteAsAdmin /></div>

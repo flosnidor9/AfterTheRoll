@@ -2,6 +2,8 @@
 
 import { FormEvent, useState } from 'react';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
+import AdminLogPasswordRecovery from '@/components/trpg/AdminLogPasswordRecovery';
 import DeploymentMarkdown from './DeploymentMarkdown';
 
 type EncryptedData = { salt: string; iv: string; ciphertext: string; authTag: string };
@@ -32,7 +34,8 @@ async function decrypt(payload: EncryptedData, password: string) {
   return new TextDecoder().decode(result);
 }
 
-export default function ProtectedDeploymentContent({ privateUrl }: { privateUrl: string }) {
+export default function ProtectedDeploymentContent({ privateUrl, passwordKey }: { privateUrl: string; passwordKey: string }) {
+  const { isAdmin, user } = useAuth();
   const [password, setPassword] = useState('');
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -67,6 +70,9 @@ export default function ProtectedDeploymentContent({ privateUrl }: { privateUrl:
         <motion.button type="submit" whileTap={{ scale: 0.98 }} disabled={loading} className="ledger-stamp rounded-[0.3rem] px-[0.8rem] py-[0.45rem] text-[0.82rem] disabled:opacity-50">{loading ? '확인 중' : '열기'}</motion.button>
       </form>
       {error ? <p className="mt-[0.45rem] text-[0.78rem] text-[var(--atr-warn)]">비밀번호가 맞지 않거나 보호 내용을 불러오지 못했습니다.</p> : null}
+      {isAdmin && user?.emailVerified && (
+        <AdminLogPasswordRecovery key={`${user.uid}/${passwordKey}`} passwordKey={passwordKey} contentLabel="게시글" />
+      )}
     </section>
   );
 }
