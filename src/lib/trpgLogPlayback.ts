@@ -1,4 +1,5 @@
 import type { LogEntry } from '../components/trpg/TrpgLogReader';
+import type { CinematicContent } from './cinematicContent';
 
 export function playbackLineId(sourceEntryId: string, lineIndex = 0): string {
   return `trpg-line-${encodeURIComponent(sourceEntryId)}-${lineIndex}`;
@@ -57,7 +58,7 @@ export function resolveRoll20Continuations(entries: LogEntry[]): LogEntry[] {
   }, []);
 }
 
-export function createCinematicEntries(entries: LogEntry[], avatarMap: Record<string, string>): LogEntry[] {
+export function createCinematicEntries(entries: LogEntry[], avatarMap: Record<string, string>, splitContent: (html: string) => CinematicContent[] = contentHtml => [{ contentHtml }]): LogEntry[] {
   // Hidden channels must not interrupt the speaker visible in the cinematic.
   const visibleEntries = entries.filter((entry) => !entry.isAside && !entry.isWhisper);
   const withPortraits = visibleEntries.reduce<LogEntry[]>((resolved, entry) => {
@@ -72,14 +73,14 @@ export function createCinematicEntries(entries: LogEntry[], avatarMap: Record<st
     // CCA groups original messages into .ln elements under one portrait.
     // Split only those explicit message boundaries; keep <br> within a message.
     const lines = entry.cinematicLines?.length ? entry.cinematicLines : [entry.contentHtml];
-    return lines.map((contentHtml, index) => ({
+    return lines.flatMap((contentHtml, index) => splitContent(contentHtml).map((part, partIndex) => ({
       ...entry,
-      id: `${entry.id}-line-${index}`,
+      id: `${entry.id}-line-${index}-part-${partIndex}`,
       sourceEntryId: entry.id,
       sourceLineIndex: index,
-      contentHtml,
+      ...part,
       avatarSrc: entry.replayStep !== undefined ? entry.avatarSrc : entry.avatarSrc || avatarMap[entry.speaker] || null,
-    }));
+    })));
   });
 }
 

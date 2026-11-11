@@ -6,6 +6,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import type { LogEntry } from './TrpgLogReader';
 import CinematicDialogue from './CinematicDialogue';
+import CinematicImage from './CinematicImage';
 import CinematicScene from './CinematicScene';
 import CinematicMusic from './CinematicMusic';
 import { SCENE_TRANSITION_SECONDS, type CinematicReplay, type ReplayStep } from '@/lib/cinematicReplay';
@@ -77,7 +78,7 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
 
   const advance = useCallback(() => {
     setPosition((current) => {
-      if (!current.complete && !entries[current.index]?.sceneOnly) return { ...current, reveal: true };
+      if (!current.complete && !entries[current.index]?.sceneOnly && !entries[current.index]?.cinematicImage) return { ...current, reveal: true };
       if (current.index >= entries.length - 1) return current;
       return { index: current.index + 1, complete: false, reveal: false };
     });
@@ -231,7 +232,9 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
           </header>
           <div className="absolute inset-0 isolate flex min-h-0 flex-col justify-end px-4 pb-4 md:px-[8vw] md:pb-8">
             {replay && scene && <CinematicScene scene={scene} replay={replay} baseUrl={replayBaseUrl} onPendingChange={setScenePending} />}
-            {!entry.sceneOnly && <div className="pointer-events-none relative z-10 min-h-0 w-full max-w-6xl self-center">
+            {entry.cinematicImage && <CinematicImage key={entry.id} {...entry.cinematicImage} onComplete={complete} />}
+            {entry.cinematicImage && <button type="button" onClick={previous} disabled={position.index === 0} className={`${CONTROL_CLASS} absolute bottom-4 right-4 z-30 md:bottom-6 md:right-8`}>이전</button>}
+            {!entry.sceneOnly && !entry.cinematicImage && <div className="pointer-events-none relative z-10 min-h-0 w-full max-w-6xl self-center">
               <div className="relative h-[clamp(0rem,calc(100dvh-22rem),40vh)] md:h-[clamp(0rem,calc(100dvh-24rem),40vh)]" aria-hidden="true">
                 <AnimatePresence initial={false}>
                   {!isNarration && entry.avatarSrc && (

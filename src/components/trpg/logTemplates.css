@@ -302,105 +302,152 @@
   opacity: 0.78 !important;
 }
 
-/* Call of Cthulhu Roll20 templates use a table rather than the
-   Shinobigami card markup. Keep their result values equally legible. */
+/* Imported CoC tables share one quiet card style in both reader and playback.
+   Keep the original rows (including bonus/penalty results) and roll tooltips. */
 .trpg-log-format [class*='sheet-rolltemplate-coc'] {
+  --roll-ink: #4d4943;
+  --roll-muted: #787168;
+  --roll-line: rgba(123, 111, 95, 0.2);
+  --roll-surface: #faf8f4;
+  --roll-heading: #eeeae3;
+  --roll-dice: #f0ede7;
+  --roll-rolled: #e7e5df;
+  --roll-success-bg: #e6ece4;
+  --roll-success-ink: #425e46;
+  --roll-failure-bg: #f0e5e1;
+  --roll-failure-ink: #85564d;
+  --roll-shadow: rgba(66, 56, 43, 0.04);
   display: block !important;
-  width: min(100%, 24rem) !important;
-  margin: 0.35rem 0 !important;
+  width: min(100%, 26rem) !important;
+  margin: 0.5rem 0 !important;
   overflow: hidden !important;
-  border: 0.0625rem solid #1e3557 !important;
-  border-radius: 0.18rem !important;
-  background: #ffffff !important;
-  box-shadow: 0 0.12rem 0.3rem rgba(30, 53, 87, 0.14) !important;
-  color: #1e3557 !important;
+  border: 1px solid var(--roll-line) !important;
+  border-radius: 0.75rem !important;
+  background: var(--roll-surface) !important;
+  box-shadow: 0 0.15rem 0.5rem var(--roll-shadow) !important;
+  color: var(--roll-ink) !important;
+  font-family: var(--trpg-log-font-family) !important;
+  font-size: var(--text-sm) !important;
+  line-height: 1.6 !important;
+  text-align: left !important;
+  white-space: normal !important;
 }
 
 .trpg-log-format [class*='sheet-rolltemplate-coc'] table {
   width: 100% !important;
   border: 0 !important;
   border-collapse: collapse !important;
-  background: #ffffff !important;
+  background: transparent !important;
+  color: inherit !important;
+  font-size: inherit !important;
 }
 
 .trpg-log-format [class*='sheet-rolltemplate-coc'] caption {
-  padding: 0.5rem 0.65rem !important;
-  background: #edf2f8 !important;
-  color: #1e3557 !important;
-  font-size: 0.92rem !important;
-  font-weight: 700 !important;
+  padding: 0.8rem 1rem !important;
+  background: var(--roll-heading) !important;
+  color: var(--roll-ink) !important;
+  font-size: var(--text-base) !important;
+  font-weight: 600 !important;
   text-align: left !important;
 }
 
-.trpg-log-format [class*='sheet-rolltemplate-coc'] tr,
-.trpg-log-format [class*='sheet-rolltemplate-coc'] tr[style] {
-  background: #ffffff !important;
+.trpg-log-format [class*='sheet-rolltemplate-coc'] tr {
+  background: transparent !important;
 }
 
 .trpg-log-format [class*='sheet-rolltemplate-coc'] td {
-  padding: 0.42rem 0.65rem !important;
-  border-top: 0.0625rem solid #d4dfec !important;
-  background: #ffffff !important;
-  color: #1e3557 !important;
-  font-size: 0.78rem !important;
-  line-height: 1.35 !important;
+  padding: 0.6rem 1rem !important;
+  border: 0 !important;
+  border-top: 1px solid var(--roll-line) !important;
+  background: transparent !important;
+  color: var(--roll-ink) !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  vertical-align: middle !important;
 }
 
 .trpg-log-format [class*='sheet-rolltemplate-coc'] .sheet-template_label {
   width: 34% !important;
-  background: #edf2f8 !important;
-  color: #425b7a !important;
-  font-weight: 700 !important;
-  white-space: nowrap !important;
+  color: var(--roll-muted) !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 500 !important;
 }
 
 .trpg-log-format [class*='sheet-rolltemplate-coc'] .sheet-template_value {
-  color: #1e3557 !important;
-  font-weight: 600 !important;
+  font-weight: 500 !important;
+  font-variant-numeric: tabular-nums;
 }
 
 .trpg-log-format [class*='sheet-rolltemplate-coc'] .inlinerollresult {
   display: inline-block !important;
-  min-width: 1.5rem !important;
-  padding: 0.08rem 0.22rem !important;
-  border: 0.0625rem solid #8da4be !important;
-  border-radius: 0.1rem !important;
-  background: #ffffff !important;
-  color: #1e3557 !important;
-  font-weight: 700 !important;
+  min-width: 1.75rem !important;
+  padding: 0.1rem 0.35rem !important;
+  border: 1px solid var(--roll-line) !important;
+  border-radius: 0.35rem !important;
+  background: var(--roll-dice) !important;
+  color: var(--roll-ink) !important;
+  font-size: var(--text-sm) !important;
+  font-weight: 600 !important;
+  line-height: 1.5 !important;
   text-align: center !important;
+  text-shadow: none !important;
+  vertical-align: baseline;
 }
 
-.trpg-log-format [class*='sheet-rolltemplate-coc'] .inlinerollresult.fullcrit {
-  border-color: #247305 !important;
-  color: #247305 !important;
-}
-
-.trpg-log-format [class*='sheet-rolltemplate-coc'] .inlinerollresult.fullfail {
-  border-color: #be202e !important;
-  color: #be202e !important;
-}
-
-.trpg-log-format [class*='sheet-rolltemplate-coc'] td.sheet-template_value[data-i18n] {
-  background: #247305 !important;
-  color: #ffffff !important;
+.trpg-log-format [class*='sheet-rolltemplate-coc'] tr:has([data-i18n='rolled']) .inlinerollresult {
+  min-width: 2rem !important;
+  background: var(--roll-rolled) !important;
+  font-size: var(--text-base) !important;
   font-weight: 700 !important;
 }
 
-.trpg-log-format [class*='sheet-rolltemplate-coc'] td.sheet-template_value[data-i18n='hard'] {
-  background: #35783d !important;
+.trpg-log-format [class*='sheet-rolltemplate-coc'] .inlinerollresult.fullcrit,
+.trpg-log-format [class*='sheet-rolltemplate-coc'] td.sheet-template_value:is([data-i18n='success'], [data-i18n='hard'], [data-i18n='extreme'], [data-i18n='critical']) {
+  background: var(--roll-success-bg) !important;
+  color: var(--roll-success-ink) !important;
+  font-weight: 600 !important;
 }
 
-.trpg-log-format [class*='sheet-rolltemplate-coc'] td.sheet-template_value[data-i18n='extreme'] {
-  background: #1f5e8f !important;
+.trpg-log-format [class*='sheet-rolltemplate-coc'] .inlinerollresult.fullfail,
+.trpg-log-format [class*='sheet-rolltemplate-coc'] td.sheet-template_value:is([data-i18n='failure'], [data-i18n='fail'], [data-i18n='fumble']) {
+  background: var(--roll-failure-bg) !important;
+  color: var(--roll-failure-ink) !important;
+  font-weight: 600 !important;
 }
 
-.trpg-log-format [class*='sheet-rolltemplate-coc'] td.sheet-template_value[data-i18n='critical'] {
-  background: #6f4e9b !important;
+/* Match the cinematic dialogue surface without changing the paper reader. */
+.trpg-cinematic-dialogue [class*='sheet-rolltemplate-coc'] {
+  --roll-ink: #e4e0da;
+  --roll-muted: #b3ada5;
+  --roll-line: rgba(228, 224, 218, 0.14);
+  --roll-surface: #222529;
+  --roll-heading: #2b2e32;
+  --roll-dice: #303438;
+  --roll-rolled: #3b4147;
+  --roll-success-bg: #263b32;
+  --roll-success-ink: #b7cfbd;
+  --roll-failure-bg: #412f32;
+  --roll-failure-ink: #e1b6b4;
+  --roll-shadow: rgba(0, 0, 0, 0.16);
 }
 
-.trpg-log-format [class*='sheet-rolltemplate-coc'] td.sheet-template_value[data-i18n='failure'],
-.trpg-log-format [class*='sheet-rolltemplate-coc'] td.sheet-template_value[data-i18n='fail'],
-.trpg-log-format [class*='sheet-rolltemplate-coc'] td.sheet-template_value[data-i18n='fumble'] {
-  background: #be202e !important;
+/* Inline rolls outside a character-sheet table also appear on dark dialogue. */
+.trpg-cinematic-dialogue .inlinerollresult {
+  padding: 0.1rem 0.35rem !important;
+  border: 1px solid rgba(228, 224, 218, 0.18) !important;
+  border-radius: 0.35rem !important;
+  background: #303438 !important;
+  color: #e4e0da !important;
+  font-variant-numeric: tabular-nums;
+  text-shadow: none !important;
+}
+
+.trpg-cinematic-dialogue .inlinerollresult.fullcrit {
+  background: #263b32 !important;
+  color: #b7cfbd !important;
+}
+
+.trpg-cinematic-dialogue .inlinerollresult.fullfail {
+  background: #412f32 !important;
+  color: #e1b6b4 !important;
 }

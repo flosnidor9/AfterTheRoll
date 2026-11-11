@@ -8,6 +8,8 @@ import type { CSSProperties } from 'react';
 import type { TrpgCastEntry } from '@/lib/data/trpg';
 import { expandCcaArchive } from '@/lib/ccaArchive';
 import { resolveRoll20AssetUrl } from '@/lib/trpgLogAssets';
+import { paginateEntries } from '@/lib/trpgLogPagination';
+import { splitCinematicContent, type CinematicContent } from '@/lib/cinematicContent';
 import { buildReplaySteps, isCinematicReplay, parseCinematicReplay, replayMediaSource, replayMessageHtml, replayMessageVisible } from '@/lib/cinematicReplay';
 import CinematicLogPlayer from './CinematicLogPlayer';
 import StickyLogToolbar from './StickyLogToolbar';
@@ -32,6 +34,7 @@ export type LogEntry = {
   whisperTo?: string;
   avatarSrc: string | null;
   contentHtml: string;
+  cinematicImage?: CinematicContent['cinematicImage'];
   cinematicLines?: string[];
   sourceEntryIds?: string[];
   sourceEntryId?: string;
@@ -55,10 +58,7 @@ const LOG_FONT_OPTIONS = [
 
 type LogFontValue = (typeof LOG_FONT_OPTIONS)[number]['value'];
 
-const MAX_PAGE_ENTRIES = 80;
-const MAX_PAGE_WEIGHT = 120000;
 const RELOAD_STORAGE_KEY = 'trpg-log-reader-reload';
-const PORTRAIT_CROP_RATIO = 1.15;
 const EMPTY_LOG_ENTRIES: LogEntry[] = [];
 const DEFAULT_MAIN_CHANNELS = ['main'];
 const EMPTY_CHANNELS: string[] = [];
@@ -517,42 +517,6 @@ function parseEntries(html: string, htmlUrl?: string): LogEntry[] {
   return resolveRoll20Continuations(parsed);
 }
 
-function paginateEntries(entries: LogEntry[]): LogEntry[][] {
-  const pages: LogEntry[][] = [];
-  let current: LogEntry[] = [];
-  let weight = 0;
-
-  for (const entry of entries) {
-    const entryWeight = entry.contentHtml.length + entry.speaker.length * 8;
-    const shouldSplit =
-      current.length > 0 &&
-      (current.length >= MAX_PAGE_ENTRIES || weight + entryWeight > MAX_PAGE_WEIGHT);
-
-    if (shouldSplit) {
-      pages.push(current);
-      current = [];
-      weight = 0;
-    }
-
-    current.push(entry);
-    weight += entryWeight;
-  }
-
-  if (current.length > 0) pages.push(current);
-  return pages;
-}
-
-function wrapPortraitLogImage(img: HTMLImageElement) {
-  if (img.closest('.trpg-portrait-frame')) return;
-  if (!img.naturalWidth || !img.naturalHeight) return;
-  if (img.naturalHeight / img.naturalWidth < PORTRAIT_CROP_RATIO) return;
-
-  const frame = document.createElement('span');
-  frame.className = 'trpg-portrait-frame';
-  img.parentNode?.insertBefore(frame, img);
-  frame.appendChild(img);
-}
-
 function addPlaybackAnchors(html: string, playbackIndexes: Map<string, number>): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   for (const source of doc.querySelectorAll<HTMLElement>('[data-trpg-source]')) {
@@ -716,8 +680,8 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, sourceFormat, fall
   }, [html, isClient, avatarMap, mainChannels, whisperChannels, htmlUrl, gmName, replayResult, replay, replaySteps, replayBaseUrl]);
   const entries = useMemo(() => createReaderEntries(rawEntries), [rawEntries]);
   const cinematicEntries = useMemo(
-    () => createCinematicEntries(rawEntries, avatarMap),
-    [rawEntries, avatarMap],
+    () => createCinematicEntries(rawEntries, avatarMap, html => splitCinematicContent(html, htmlUrl ? new URL(htmlUrl, window.location.href).href : undefined)),
+    [rawEntries, avatarMap, htmlUrl],
   );
   const visibleEntries = useMemo(
     () => (showAside ? entries : entries.filter((entry) => !entry.isAside)),
@@ -726,9 +690,11 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, sourceFormat, fall
   const pages = useMemo(() => paginateEntries(visibleEntries), [visibleEntries]);
   const effectivePageIndex = Math.min(pageIndex, Math.max(0, pages.length - 1));
   const currentPage = useMemo(() => pages[effectivePageIndex] ?? EMPTY_LOG_ENTRIES, [effectivePageIndex, pages]);
-  const playbackIndexes = useMemo(() => new Map(cinematicEntries.map((entry, index) => [
-    playbackLineId(entry.sourceEntryId!, entry.sourceLineIndex), index,
-  ])), [cinematicEntries]);
+  const playbackIndexes = useMemo(() => cinematicEntries.reduce((indexes, entry, index) => {
+    const id = playbackLineId(entry.sourceEntryId!, entry.sourceLineIndex);
+    if (!indexes.has(id)) indexes.set(id, index);
+    return indexes;
+  }, new Map<string, number>()), [cinematicEntries]);
   const renderedPage = useMemo(() => currentPage.map((entry) => ({
     ...entry,
     contentHtml: addPlaybackAnchors(entry.contentHtml, playbackIndexes),
@@ -801,31 +767,6 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, sourceFormat, fall
     });
     return () => cancelAnimationFrame(frame);
   }, [returnLineId, effectivePageIndex, renderedPage]);
-
-  useEffect(() => {
-    const reader = readerRef.current;
-    if (!reader) return;
-
-    const images = Array.from(
-      reader.querySelectorAll<HTMLImageElement>('.trpg-entry-content img, .trpg-media-bubble img'),
-    );
-    const cleanups: Array<() => void> = [];
-
-    for (const img of images) {
-      if (img.complete) {
-        wrapPortraitLogImage(img);
-        continue;
-      }
-
-      const handleLoad = () => wrapPortraitLogImage(img);
-      img.addEventListener('load', handleLoad, { once: true });
-      cleanups.push(() => img.removeEventListener('load', handleLoad));
-    }
-
-    return () => {
-      for (const cleanup of cleanups) cleanup();
-    };
-  }, [currentPage, effectivePageIndex]);
 
   const moveToPage = (nextPageIndex: number) => {
     shouldScrollToReaderRef.current = true;
@@ -1101,24 +1042,6 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, sourceFormat, fall
           max-width: none !important;
           border-radius: 0.12rem;
           object-fit: contain;
-        }
-
-        .trpg-log-reader .trpg-portrait-frame {
-          display: block;
-          width: 100%;
-          max-width: min(100%, 36rem);
-          aspect-ratio: 1 / 1;
-          overflow: hidden;
-          border-radius: 0.16rem;
-          background: rgba(251, 252, 253, 0.9);
-        }
-
-        .trpg-log-reader .trpg-portrait-frame img {
-          width: 100% !important;
-          max-width: none !important;
-          height: 100% !important;
-          object-fit: cover !important;
-          object-position: center top !important;
         }
 
         .trpg-log-reader .trpg-entry-general {
