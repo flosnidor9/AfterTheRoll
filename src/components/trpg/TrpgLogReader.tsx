@@ -8,13 +8,16 @@ import type { CSSProperties } from 'react';
 import type { TrpgCastEntry } from '@/lib/data/trpg';
 import { expandCcaArchive } from '@/lib/ccaArchive';
 import { resolveRoll20AssetUrl } from '@/lib/trpgLogAssets';
+import { buildReplaySteps, isCinematicReplay, parseCinematicReplay, replayMediaSource, replayMessageHtml, replayMessageVisible } from '@/lib/cinematicReplay';
 import CinematicLogPlayer from './CinematicLogPlayer';
 import StickyLogToolbar from './StickyLogToolbar';
+import ReaderMusic from './ReaderMusic';
 import { createCinematicEntries, createReaderEntries, resolveRoll20Continuations, findPlaybackPage, findTopPlaybackIndex, playbackLineId } from '@/lib/trpgLogPlayback';
 
 type Props = {
   htmlUrl?: string;
   htmlContent?: string;
+  sourceFormat?: string;
   fallbackAvatarSrc?: string;
   gmName?: string;
   cast?: TrpgCastEntry[];
@@ -39,6 +42,8 @@ export type LogEntry = {
   preserveLineBreaks?: boolean;
   isRoll20Narration?: boolean;
   kind: 'chat' | 'media';
+  replayStep?: number;
+  sceneOnly?: boolean;
 };
 
 const LOG_FONT_OPTIONS = [
@@ -560,19 +565,22 @@ function addPlaybackAnchors(html: string, playbackIndexes: Map<string, number>):
       line.id = anchorId;
       line.dataset.trpgPlaybackIndex = String(playbackIndex);
       line.tabIndex = -1;
-      line.classList.add('outline-none', 'focus:bg-amber-900/10');
+      line.classList.add('outline-none');
     }
   }
   return doc.body.innerHTML;
 }
 
-export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc, gmName, cast, mainChannels = DEFAULT_MAIN_CHANNELS, whisperChannels = EMPTY_CHANNELS }: Props) {
+export default function TrpgLogReader({ htmlUrl, htmlContent, sourceFormat, fallbackAvatarSrc, gmName, cast, mainChannels = DEFAULT_MAIN_CHANNELS, whisperChannels = EMPTY_CHANNELS }: Props) {
   const [html, setHtml] = useState<string | null>(htmlContent ?? null);
   const [isClient, setIsClient] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
   const [showAside, setShowAside] = useState(true);
   const [logFont, setLogFont] = useState<LogFontValue>('default');
   const [returnLineId, setReturnLineId] = useState<string | null>(null);
+  const [cinematicOpen, setCinematicOpen] = useState(false);
+  const [cinematicIndex, setCinematicIndex] = useState(0);
+  const [musicControlsHost, setMusicControlsHost] = useState<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const readerRef = useRef<HTMLElement | null>(null);
   const restoredPageRef = useRef(false);
@@ -665,8 +673,33 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
     return () => controller.abort();
   }, [htmlUrl, htmlContent]);
 
+  const replayResult = useMemo(() => {
+    if (!html || (!isCinematicReplay(html) && sourceFormat !== 'cinematic')) return null;
+    try { return { replay: parseCinematicReplay(html), error: '' }; }
+    catch (error) { return { replay: null, error: error instanceof Error ? error.message : '리플레이를 읽을 수 없습니다.' }; }
+  }, [html, sourceFormat]);
+  const replay = replayResult?.replay ?? undefined;
+  const replayBaseUrl = isClient && htmlUrl ? new URL(htmlUrl, window.location.href).href : undefined;
+  const replaySteps = useMemo(() => replay ? buildReplaySteps(replay, replayBaseUrl) : [], [replay, replayBaseUrl]);
+
   const rawEntries = useMemo(() => {
     if (!html || !isClient) return [];
+    if (replayResult) {
+      if (!replay) return [];
+      return replaySteps.map((step, replayStep): LogEntry => {
+        const message = step.message;
+        const speaker = String(message?.speaker ?? '');
+        const narrator = !message || !speaker || (replay.settings?.narrators ?? ['Narrator', '나레이션', '나레이터', 'Narration']).includes(speaker);
+        return {
+          id: step.id, speaker: narrator ? '' : speaker,
+          avatarSrc: narrator ? null : replayMediaSource(message?.portrait, replay.assets, replayBaseUrl) || null,
+          contentHtml: message ? replayMessageHtml(message, replay.assets, replayBaseUrl) : '',
+          kind: message ? 'chat' : 'media', preserveLineBreaks: true,
+          isAside: !!message && !replayMessageVisible(replay, message), isWhisper: false,
+          isNarrator: narrator, replayStep, sceneOnly: !message,
+        };
+      });
+    }
     const format = detectFormat(html);
     const normalizedMainChannels = mainChannels.map(normalizeChannel);
     const normalizedWhisperChannels = whisperChannels.map(normalizeChannel);
@@ -680,7 +713,7 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
             : parseEntries(html, htmlUrl);
 
     return parsedEntries;
-  }, [html, isClient, avatarMap, mainChannels, whisperChannels, htmlUrl, gmName]);
+  }, [html, isClient, avatarMap, mainChannels, whisperChannels, htmlUrl, gmName, replayResult, replay, replaySteps, replayBaseUrl]);
   const entries = useMemo(() => createReaderEntries(rawEntries), [rawEntries]);
   const cinematicEntries = useMemo(
     () => createCinematicEntries(rawEntries, avatarMap),
@@ -712,14 +745,14 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
     setPageIndex(targetPage);
     setReturnLineId(playbackLineId(entry.sourceEntryId, entry.sourceLineIndex));
   }, [pages]);
-  const getCinematicStartIndex = () => {
+  const getCinematicStartIndex = useCallback(() => {
     const anchors = Array.from(readerRef.current?.querySelectorAll<HTMLElement>('[data-trpg-playback-index]') ?? []);
     const contentTop = Math.max(0, toolbarRef.current?.getBoundingClientRect().bottom ?? 0);
     return findTopPlaybackIndex(anchors.map((anchor) => {
       const rect = anchor.getBoundingClientRect();
       return { top: rect.top, bottom: rect.bottom, index: Number(anchor.dataset.trpgPlaybackIndex) };
     }), contentTop, window.innerHeight);
-  };
+  }, []);
   const selectedLogFont = LOG_FONT_OPTIONS.find((option) => option.value === logFont) ?? LOG_FONT_OPTIONS[0];
   const readerStyle = {
     '--trpg-log-font-family': selectedLogFont.fontFamily,
@@ -753,8 +786,10 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
     if (!shouldScrollToReaderRef.current) return;
 
     shouldScrollToReaderRef.current = false;
-    readerRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  }, [effectivePageIndex]);
+    // Replaced replay pages must settle before music follows the visible line;
+    // a smooth scroll would briefly select unrelated tracks along the way.
+    readerRef.current?.scrollIntoView({ block: 'start', behavior: replay ? 'instant' : 'smooth' });
+  }, [effectivePageIndex, replay]);
 
   useEffect(() => {
     if (!returnLineId) return;
@@ -805,6 +840,8 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
     );
   }
 
+  if (replayResult?.error) return <p role="alert" className="p-6 text-sm text-[var(--ledger-muted)]">{replayResult.error}</p>;
+
   if (pages.length === 0) {
     return (
       <div className="afterroll-note flex min-h-[28rem] items-center justify-center text-[1.02rem] text-[var(--ledger-muted)]">
@@ -832,7 +869,8 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
       <StickyLogToolbar toolbarRef={toolbarRef} readerRef={readerRef}>
         <p className="afterroll-meta hidden text-sm uppercase tracking-wide md:block">{visibleEntries.length} transcript lines</p>
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
-          <CinematicLogPlayer entries={cinematicEntries} fontFamily={selectedLogFont.fontFamily} getStartIndex={getCinematicStartIndex} onClose={returnFromCinematic} />
+          {replay && <ReaderMusic replay={replay} steps={replaySteps} entries={cinematicEntries} baseUrl={replayBaseUrl} readerRef={readerRef} toolbarRef={toolbarRef} getStartIndex={getCinematicStartIndex} pageEntries={renderedPage} suspended={cinematicOpen || !!returnLineId} cinematicIndex={cinematicIndex} controlsHost={musicControlsHost} />}
+          <CinematicLogPlayer entries={cinematicEntries} replay={replay} replaySteps={replaySteps} replayBaseUrl={replayBaseUrl} fontFamily={selectedLogFont.fontFamily} getStartIndex={getCinematicStartIndex} onClose={returnFromCinematic} onOpenChange={setCinematicOpen} onPlaybackIndexChange={setCinematicIndex} onMusicControlsHost={setMusicControlsHost} />
           <label className="inline-flex items-center gap-[0.45rem]">
             <span className="afterroll-meta text-[0.84rem] tracking-[0.08em]">글씨체</span>
             <select
@@ -873,7 +911,7 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
                 ? `trpg-log-row trpg-log-media-row px-[0.25rem] py-[0.5rem] text-center md:px-[0.35rem] md:py-[0.6rem] ${
                     entry.isRoll20Narration ? 'trpg-roll20-narration' : ''
                   }`
-                : `trpg-log-row grid grid-cols-[3.75rem_minmax(0,1fr)] gap-[0.65rem] px-[0.25rem] py-[0.5rem] md:grid-cols-[4.1rem_minmax(0,1fr)] md:px-[0.35rem] md:py-[0.6rem] ${
+                : `trpg-log-row grid ${entry.isNarrator ? 'grid-cols-1' : 'grid-cols-[3.75rem_minmax(0,1fr)] md:grid-cols-[4.1rem_minmax(0,1fr)]'} gap-[0.65rem] px-[0.25rem] py-[0.5rem] md:px-[0.35rem] md:py-[0.6rem] ${
                     entry.isAside ? 'trpg-log-row-aside' : ''
                   } ${entry.isWhisper ? 'trpg-log-row-whisper' : ''} ${entry.isNarrator ? 'trpg-log-row-cca-narrator' : ''}`
             }
@@ -887,7 +925,7 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
               </div>
             ) : (
               <>
-                <div className="relative z-[1] flex flex-col items-center justify-start pt-[0.1rem]">
+                <div className={`relative z-[1] ${entry.isNarrator ? 'hidden' : 'flex'} flex-col items-center justify-start pt-[0.1rem]`}>
                   {entry.avatarSrc ? (
                     <div className="h-[3.75rem] w-[3.75rem] overflow-hidden rounded-[0.2rem] border border-[rgba(87,67,48,0.18)] p-[0.12rem] md:h-[4.1rem] md:w-[4.1rem]">
                       {/* Roll20 avatar URLs are runtime external sources, so Next Image cannot optimize them safely. */}
@@ -1003,7 +1041,7 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
         .trpg-log-reader .trpg-log-row-cca-narrator .trpg-entry-content,
         .trpg-log-reader .trpg-log-row-cca-narrator .trpg-entry-content * {
           font-weight: 400 !important;
-          text-align: left !important;
+          text-align: center !important;
         }
 
         .trpg-log-reader .trpg-roll-result {
@@ -1049,6 +1087,7 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, fallbackAvatarSrc,
         .trpg-log-reader .trpg-cca-narrator * {
           background: transparent !important;
           box-shadow: none !important;
+          text-align: center !important;
         }
 
         .trpg-log-reader img {

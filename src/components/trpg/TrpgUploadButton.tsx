@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToPlays, type PlayEntry } from '@/lib/data/firebasePlays';
 import { buildTrpgUploadFiles, commitTrpgUploadAtomically, encryptTrpgLogContent, resolveTrpgUploadTitle, saveTrpgPassword, type TrpgUploadDraft, type TrpgUploadMediaFile } from '@/lib/trpgUpload';
 import { expandCcaArchive, isCompressedCcaArchive } from '@/lib/ccaArchive';
+import { isCinematicReplay, parseCinematicReplay, replayMediaSource } from '@/lib/cinematicReplay';
 
 const LEGACY_MASTER_KEY_STORAGE_KEY = 'after-the-roll-master-key';
 const CALENDAR_ID = '848efa2587af083c615b7c3581e818075a6489d1d0ce70c4ac3ef60880d0fbae%40group.calendar.google.com';
@@ -14,6 +15,7 @@ const FORMAT_OPTIONS = [
   { value: 'roll20', label: 'Roll20' },
   { value: 'ccfolia', label: '코코포리아' },
   { value: 'cca', label: '코코포리아 (CCA)' },
+  { value: 'cinematic', label: '시네마틱 리플레이' },
 ] as const;
 
 async function copyErrorMessage(message: string) {
@@ -221,7 +223,7 @@ function groupCalendarMatches(matches: CalendarMatch[]) {
 }
 
 function buildLogTags(rule: string, playerCount: string, type: string, format: TrpgUploadDraft['format']) {
-  const platform = format === 'roll20' ? 'Roll20' : '코코포리아';
+  const platform = format === 'cinematic' ? '시네마틱' : format === 'roll20' ? 'Roll20' : '코코포리아';
   return [
     ...(rule ? [`룰: ${rule}`] : []),
     ...(playerCount ? [`인원수: ${playerCount}`] : []),
@@ -231,6 +233,7 @@ function buildLogTags(rule: string, playerCount: string, type: string, format: T
 }
 
 function detectUploadFormat(html: string): TrpgUploadDraft['format'] {
+  if (isCinematicReplay(html)) return 'cinematic';
   if ((/class=["'][^"']*icecandy-export/.test(html) && /data-skin=["']roll20/.test(html)) || /class=["'][^"']*\bmessage\b/.test(html)) {
     return 'roll20';
   }
@@ -399,6 +402,18 @@ export default function TrpgUploadButton() {
     const file = event.target.files?.[0];
     if (!file) return;
     const html = await file.text();
+    if (isCinematicReplay(html)) {
+      try {
+        const replay = parseCinematicReplay(html);
+        setSource({ name: file.name, html });
+        setFormat('cinematic');
+        setSpeakers(uniqueNames(replay.messages.map(message => message.speaker)));
+        setImageSources([...new Set(replay.messages.map(message => replayMediaSource(message.portrait, replay.assets)).filter(Boolean))]);
+        setLocalImagePreviews({}); setCastSelections([]); setHoveredImageSource(null); setStatus(null);
+        if (!title) setTitle(replay.title || file.name.replace(/\.html?$/i, ''));
+      } catch (error) { setStatus(error instanceof Error ? error.message : '시네마틱 파일을 확인해 주세요.'); }
+      return;
+    }
     const previewHtml = await expandCcaArchive(html);
     setSource({ name: file.name, html });
     setFormat(detectUploadFormat(html));
@@ -461,6 +476,10 @@ export default function TrpgUploadButton() {
   };
 
   const submit = async () => {
+    if (format === 'cinematic') {
+      try { parseCinematicReplay(source?.html ?? ''); }
+      catch (error) { setStatus(error instanceof Error ? error.message : '시네마틱 파일을 확인해 주세요.'); return; }
+    }
     const connectedPlay = selectedCalendarMatch
       ? plays.find((play) => normalizeTitle(play.title) === normalizeTitle(selectedCalendarMatch.title))
       : undefined;
@@ -583,11 +602,11 @@ export default function TrpgUploadButton() {
                 <TagChipField label="유형" options={playTypes} value={playType} onChange={setPlayType} />
                 <Field label="플랫폼">
                   <span className="afterroll-meta inline-flex rounded-full border border-[var(--atr-accent)] bg-[rgba(88,125,163,0.14)] px-[0.55rem] py-[0.2rem] text-[0.72rem] text-[var(--atr-accent)]">
-                    {format === 'roll20' ? 'Roll20' : '코코포리아'}
+                    {format === 'cinematic' ? '시네마틱' : format === 'roll20' ? 'Roll20' : '코코포리아'}
                   </span>
                 </Field>
               </div>
-              {format !== 'roll20' ? <>
+              {format !== 'roll20' && format !== 'cinematic' ? <>
                 <Field label="메인 채널 (쉼표로 구분)"><input value={mainChannels} onChange={(event) => setMainChannels(event.target.value)} placeholder="main" /></Field>
                 <Field label="귓말 채널 (쉼표로 구분)"><input value={whisperChannels} onChange={(event) => setWhisperChannels(event.target.value)} placeholder="비밀 탭, GM 귓말" /></Field>
               </> : null}

@@ -17,6 +17,7 @@ type EncryptedData = {
 
 type Props = {
   encryptedUrl: string;
+  sourceFormat?: string;
   passwordKey: string;
   fallbackAvatarSrc?: string;
   gmName?: string;
@@ -58,7 +59,7 @@ async function decryptContent(data: EncryptedData, password: string): Promise<st
   return new TextDecoder().decode(decrypted);
 }
 
-export default function EncryptedTrpgLogReader({ encryptedUrl, passwordKey, fallbackAvatarSrc, gmName, cast, mainChannels, whisperChannels }: Props) {
+export default function EncryptedTrpgLogReader({ encryptedUrl, sourceFormat, passwordKey, fallbackAvatarSrc, gmName, cast, mainChannels, whisperChannels }: Props) {
   const { isAdmin, user } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isEmpty, setIsEmpty] = useState(true);
@@ -89,6 +90,7 @@ export default function EncryptedTrpgLogReader({ encryptedUrl, passwordKey, fall
   if (htmlContent !== null) {
     return (
       <TrpgLogReader
+        sourceFormat={sourceFormat}
         htmlUrl={encryptedUrl}
         htmlContent={htmlContent}
         fallbackAvatarSrc={fallbackAvatarSrc}

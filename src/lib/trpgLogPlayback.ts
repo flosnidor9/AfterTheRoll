@@ -5,7 +5,7 @@ export function playbackLineId(sourceEntryId: string, lineIndex = 0): string {
 }
 
 export function createReaderEntries(entries: LogEntry[]): LogEntry[] {
-  return mergeConsecutiveCharacterEntries(entries.map((entry) => ({
+  return mergeConsecutiveCharacterEntries(entries.filter(entry => !entry.sceneOnly).map((entry) => ({
     ...entry,
     sourceEntryIds: [entry.id],
     contentHtml: `<div data-trpg-source="${encodeURIComponent(entry.id)}">${entry.contentHtml}</div>`,
@@ -65,7 +65,7 @@ export function createCinematicEntries(entries: LogEntry[], avatarMap: Record<st
     const sameSpeaker = entry.speaker && entry.speaker === previous?.speaker &&
       entry.kind === 'chat' && previous.kind === 'chat' &&
       !entry.isNarrator && !previous.isNarrator;
-    resolved.push({ ...entry, avatarSrc: entry.avatarSrc || (sameSpeaker ? previous.avatarSrc : null) || avatarMap[entry.speaker] || null });
+    resolved.push({ ...entry, avatarSrc: entry.replayStep !== undefined ? entry.avatarSrc : entry.avatarSrc || (sameSpeaker ? previous.avatarSrc : null) || avatarMap[entry.speaker] || null });
     return resolved;
   }, []);
   return withPortraits.flatMap((entry) => {
@@ -78,7 +78,7 @@ export function createCinematicEntries(entries: LogEntry[], avatarMap: Record<st
       sourceEntryId: entry.id,
       sourceLineIndex: index,
       contentHtml,
-      avatarSrc: entry.avatarSrc || avatarMap[entry.speaker] || null,
+      avatarSrc: entry.replayStep !== undefined ? entry.avatarSrc : entry.avatarSrc || avatarMap[entry.speaker] || null,
     }));
   });
 }

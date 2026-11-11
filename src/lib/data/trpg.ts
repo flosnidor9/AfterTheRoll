@@ -27,7 +27,7 @@ export type TrpgPostMeta = {
   cast: TrpgCastEntry[];
   htmlPath: string;
   htmlUrl: string;
-  sourceFormat: 'roll20' | 'ccfolia' | 'cca' | '';
+  sourceFormat: 'roll20' | 'ccfolia' | 'cca' | 'cinematic' | '';
   encrypted?: boolean;
   mainChannels?: string[];
   whisperChannels?: string[];
@@ -126,7 +126,7 @@ function parsePostMeta(folderSlug: string, fileName: string): TrpgPostMeta | nul
     })),
     htmlPath,
     htmlUrl: toTrpgPublicUrl(folderSlug, htmlPath),
-    sourceFormat: (['roll20', 'ccfolia', 'cca'].includes(ensureString(data.sourceFormat)) ? data.sourceFormat : '') as TrpgPostMeta['sourceFormat'],
+    sourceFormat: (['roll20', 'ccfolia', 'cca', 'cinematic'].includes(ensureString(data.sourceFormat)) ? data.sourceFormat : '') as TrpgPostMeta['sourceFormat'],
     encrypted: !!data.locked,
     mainChannels: ensureArray(data.mainChannels).length > 0 ? ensureArray(data.mainChannels) : undefined,
     whisperChannels: ensureArray(data.whisperChannels).length > 0 ? ensureArray(data.whisperChannels) : undefined,

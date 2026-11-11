@@ -128,6 +128,7 @@ export default async function TrpgReadPage({ params }: Props) {
         <div className="afterroll-read-log-wrap px-[0.2rem] py-[0.2rem] md:px-[0.45rem] md:py-[0.45rem]">
           {shouldUseEncryptedReader ? (
             <EncryptedTrpgLogReader
+              sourceFormat={post.sourceFormat}
               encryptedUrl={post.htmlUrl}
               passwordKey={`${resolved.folderSlug}/${resolved.postSlug}`}
               fallbackAvatarSrc={post.gmIconSrc}
@@ -138,6 +139,7 @@ export default async function TrpgReadPage({ params }: Props) {
             />
           ) : (
             <TrpgLogReader
+              sourceFormat={post.sourceFormat}
               htmlUrl={htmlUrl}
               htmlContent={localHtmlContent ?? undefined}
               fallbackAvatarSrc={post.gmIconSrc}

@@ -55,6 +55,24 @@ test('same speaker with different expressions stays in separate reading view gro
   assert.equal(grouped[1].avatarSrc, '/smile.png');
 });
 
+test('replay reading view groups matching speakers and expressions while keeping playback anchors', () => {
+  const source = [
+    message('one', { replayStep: 0 }),
+    message('two', { replayStep: 1 }),
+    message('three', { replayStep: 2, avatarSrc: '/smile.png' }),
+    message('four', { replayStep: 3, avatarSrc: '/smile.png' }),
+    message('five', { replayStep: 4, speaker: 'Other', avatarSrc: '/smile.png' }),
+  ];
+  const before = structuredClone(source);
+  const reading = createReaderEntries(source);
+  assert.deepEqual(reading.map((entry) => entry.sourceEntryIds), [['one', 'two'], ['three', 'four'], ['five']]);
+  assert.match(reading[0].contentHtml, /data-trpg-source="two"/);
+  assert.equal(findPlaybackPage([[reading[0]], reading.slice(1)], 'four'), 1);
+  const playback = createCinematicEntries(source, {});
+  assert.deepEqual(playback.map((entry) => entry.replayStep), [0, 1, 2, 3, 4]);
+  assert.deepEqual(source, before);
+});
+
 test('CCA original message lines play separately with their corresponding expression', () => {
   const source = [
     message('one', { cinematicLines: ['First line', 'Second<br>line'] }),

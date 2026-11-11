@@ -26,7 +26,7 @@ export type TrpgUploadDraft = {
   description: string;
   date: string;
   tags: string[];
-  format: 'roll20' | 'ccfolia' | 'cca';
+  format: 'roll20' | 'ccfolia' | 'cca' | 'cinematic';
   locked: boolean;
   mainChannels: string[];
   whisperChannels: string[];
