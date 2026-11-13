@@ -16,6 +16,3 @@ GitHub에서 이 저장소의 이름을 `afterTheRoll`로 변경한 뒤, Pages�
 
 TRPG 업로드 기능은 `flosnidor9/AfterTheRoll` 저장소에 비밀번호 데이터를 저장하도록 설정되어 있습니다. 저장소를 다른 이름으로 만들 경우 `src/lib/trpgUpload.ts`의 `TRPG_SITE_REPOSITORY`도 같은 이름으로 바꾸세요.
 
-## Separated site sources
-
-filmHome과 bubbleHome의 기존 App Router 라우트는 Next.js가 배포하지 않도록 `.migration-sources/`로 옮겨 두었습니다. 각각의 새 저장소를 만들 때 이 폴더를 출발점으로 사용하고, 관련 컴포넌트와 `public/images/film*`, `public/images/bubble*` 에셋을 함께 옮기면 됩니다.

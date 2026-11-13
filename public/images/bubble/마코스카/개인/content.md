@@ -1,3 +1,0 @@
-# Personal
-
-Thanks to @신카님 러브...
