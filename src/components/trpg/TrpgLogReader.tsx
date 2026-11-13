@@ -9,7 +9,7 @@ import type { TrpgCastEntry } from '@/lib/data/trpg';
 import { expandCcaArchive } from '@/lib/ccaArchive';
 import { resolveRoll20AssetUrl } from '@/lib/trpgLogAssets';
 import { paginateEntries } from '@/lib/trpgLogPagination';
-import { formatLogDiceHtml } from '@/lib/cocofoliaRoll';
+import { formatLogDiceHtml } from '@/lib/logDiceFormatting';
 import { splitCinematicContent, type CinematicContent } from '@/lib/cinematicContent';
 import { buildReplaySteps, isCinematicReplay, parseCinematicReplay, replayMediaSource, replayMessageHtml, replayMessageVisible } from '@/lib/cinematicReplay';
 import CinematicLogPlayer from './CinematicLogPlayer';

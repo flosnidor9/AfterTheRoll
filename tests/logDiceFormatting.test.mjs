@@ -1,54 +1,60 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
 import test from 'node:test';
-import ts from 'typescript';
+import { parseCocofoliaRoll, diceRollHtml } from '../src/lib/logDiceFormatting.ts';
 
-// Exercise the real DOMParser used by every log adapter, without a DOM mock.
-const browser = [
-  process.env.CHROME_PATH,
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium',
-].find(candidate => candidate && fs.existsSync(candidate));
+const insane = '2D6>=5 [ 풍경 ] (2D6>=5) ＞ 6[1,5] ＞ 6 ＞ 성공';
+const coc = 'CC<=65 관찰력 (1D100<=65) 보너스, 페널티 주사위[0] ＞ 53 ＞ 53 ＞ 보통 성공';
+const visible = text => diceRollHtml(parseCocofoliaRoll(text)).replace(/<[^>]*>/g, '');
 
-test('all log formats summarize text rolls while retaining rich media and tables', { skip: !browser }, () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'after-roll-dice-'));
-  const source = ts.transpileModule(fs.readFileSync(new URL('../src/lib/cocofoliaRoll.ts', import.meta.url), 'utf8'), {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
-  }).outputText.replace(/^export /gm, '');
-  const roll = 'SG#2>=(1*(1*(5)+(1-1)*(8))+(1-1)*(1*(5)+(1-1)*(1*(9)+(1-1)*(1*(10)+(1-1)*(12))))) | 【괴뢰술】 (SG@12#2>=5) ＞ 6[1,5] ＞ 6 ＞ 성공';
-  const escaped = roll.replace(/>/g, '&gt;');
-  const cases = [
-    ['cinematic plain body', escaped, true],
-    ['rich text body', `<span>${escaped.replace('【괴뢰술】', '<b>【괴뢰술】</b>')}</span>`, true],
-    ['CCA dialogue lines', `<div><div class="ln">${escaped}</div><div class="ln">다음 대사</div></div>`, true],
-    ['Roll20 paragraph', `<p>${escaped}</p>`, true],
-    ['dice table', `<table><tr><td>${escaped}</td></tr></table>`, false],
-    ['mixed image', `<div><img src="image.png">${escaped}</div>`, false],
-    ['ordinary dialogue', '<b>평범한 대사</b>', false],
-    ['unrecognized roll', '<span>SG 알 수 없는 결과</span>', false],
-  ];
-  const script = `${source}
-    for (const [name, input, change] of ${JSON.stringify(cases)}) {
-      const output = formatLogDiceHtml(input);
-      if (change ? (!output.includes('목표치 5') || output.includes('SG#2') || output.includes('SG@12')) : output !== input) {
-        throw Error(name + ': ' + output);
-      }
-    }
-    document.body.textContent = 'PASS: all log dice formatting checks';`;
-  const file = path.join(dir, 'check.html');
-  fs.writeFileSync(file, `<!doctype html><body><script>${script}</script>`);
-  const result = spawnSync(browser, [
-    '--headless', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
-    `--user-data-dir=${path.join(dir, 'profile')}`, '--dump-dom',
-    pathToFileURL(file).href,
-  ], { encoding: 'utf8', timeout: 30000, windowsHide: true, maxBuffer: 1024 * 1024 });
-  assert.ifError(result.error);
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /<body>PASS: all log dice formatting checks<\/body>/);
+test('summarizes the reported long Shinobigami formula', () => {
+  const text = 'SG#2>=(1*(1*(5)+(1-1)*(8))+(1-1)*(1*(5)+(1-1)*(1*(9)+(1-1)*(1*(10)+(1-1)*(12))))) | 【괴뢰술】 (SG@12#2>=5) ＞ 6[1,5] ＞ 6 ＞ 성공';
+  assert.equal(visible(text), '【괴뢰술】 목표치 5 · 6[1,5] → 6 · 성공');
+});
+
+test('summarizes inSANe without command text or bold markup', () => {
+  assert.equal(visible(insane), '[ 풍경 ] 목표치 5 · 6[1,5] → 6 · 성공');
+  assert.equal(parseCocofoliaRoll(insane).label, 'inSANe 판정');
+  assert.ok(!diceRollHtml(parseCocofoliaRoll(insane)).includes('<strong'));
+});
+
+test('summarizes CoC and removes redundant totals and zero bonus dice', () => {
+  assert.equal(visible(coc), '관찰력 목표치 65 · 53 · 보통 성공');
+  assert.equal(parseCocofoliaRoll(coc).label, 'CoC 판정');
+});
+
+test('preserves nonzero bonus/penalty counts and candidate rolls', () => {
+  assert.equal(visible(coc.replace('주사위[0]', '주사위[1]').replace('＞ 53 ＞', '＞ 53, 23 ＞')),
+    '관찰력 목표치 65 · 보너스 주사위 1 · 53, 23 → 53 · 보통 성공');
+  assert.equal(parseCocofoliaRoll(coc.replace('주사위[0]', '주사위[-2]')).note, '페널티 주사위 2');
+});
+
+test('keeps the logged outcome authoritative for all success and failure levels', () => {
+  for (const outcome of ['보통 성공', '어려운 성공', '극단적 성공', '대성공']) {
+    assert.equal(parseCocofoliaRoll(coc.replace('보통 성공', outcome)).tone, 'success');
+  }
+  for (const outcome of ['실패', '대실패', '치명적 실패']) {
+    assert.equal(parseCocofoliaRoll(coc.replace('보통 성공', outcome)).tone, 'failure');
+  }
+  assert.equal(parseCocofoliaRoll(insane.replace('성공', '펌블')).tone, 'failure');
+});
+
+test('preserves modifiers, special results, and rolls without a separate total', () => {
+  assert.equal(visible('2D6+1>=5 [ 풍경 ] (2D6+1>=5) ＞ 6[1,5]+1 ＞ 7 ＞ 성공'),
+    '[ 풍경 ] 목표치 5 · 6[1,5]+1 → 7 · 성공');
+  assert.equal(visible('2D6>=5 [ 풍경 ] (2D6>=5) ＞ 12[6,6] ＞ 스페셜'),
+    '[ 풍경 ] 목표치 5 · 12[6,6] · 스페셜');
+});
+
+test('leaves ordinary dialogue, incomplete rolls, and unknown suffixes alone', () => {
+  for (const text of [
+    '풍경 판정을 해보자', '2D6>=5 ＞ 6[1,5] ＞ 6 ＞ 성공',
+    coc + '\n다음 대사', coc.replace('보통 성공', '알 수 없는 결과'),
+    coc.replace('주사위[0]', '주사위[?]'), insane.replace('6[1,5]', 'unknown'),
+  ]) assert.equal(parseCocofoliaRoll(text), null, text);
+});
+
+test('escapes skill names and keeps Shinobigami support through the shared parser', () => {
+  assert.ok(diceRollHtml(parseCocofoliaRoll(coc.replace('관찰력', '<script>x</script>'))).includes('&lt;script&gt;'));
+  assert.equal(visible('SG#4>=9 | 【괴뢰술】 (SG@12#4>=9) ＞ 7[2,5] ＞ 7 ＞ 실패'),
+    '【괴뢰술】 목표치 9 · 7[2,5] → 7 · 실패');
 });

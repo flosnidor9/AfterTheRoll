@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseShinobigamiRoll, shinobigamiRollHtml } from '../src/lib/cocofoliaRoll.ts';
+import { parseShinobigamiRoll, shinobigamiRollHtml } from '../src/lib/logDiceFormatting.ts';
 
 const example = 'SG#4>=(1*(9)+(1-1)*(0*(9)+(1-0)*(1*(11)+(1-1)*(1*(11)+(1-1)*(12))))) | 【괴뢰술】 (SG@12#4>=9) ＞ 7[2,5] ＞ 7 ＞ 실패';
 
