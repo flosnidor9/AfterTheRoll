@@ -6,6 +6,11 @@ const insane = '2D6>=5 [ 풍경 ] (2D6>=5) ＞ 6[1,5] ＞ 6 ＞ 성공';
 const coc = 'CC<=65 관찰력 (1D100<=65) 보너스, 페널티 주사위[0] ＞ 53 ＞ 53 ＞ 보통 성공';
 const visible = text => diceRollHtml(parseCocofoliaRoll(text)).replace(/<[^>]*>/g, '');
 
+test('summarizes the reported long Shinobigami formula', () => {
+  const text = 'SG#2>=(1*(1*(5)+(1-1)*(8))+(1-1)*(1*(5)+(1-1)*(1*(9)+(1-1)*(1*(10)+(1-1)*(12))))) | 【괴뢰술】 (SG@12#2>=5) ＞ 6[1,5] ＞ 6 ＞ 성공';
+  assert.equal(visible(text), '【괴뢰술】 목표치 5 · 6[1,5] → 6 · 성공');
+});
+
 test('summarizes inSANe without command text or bold markup', () => {
   assert.equal(visible(insane), '[ 풍경 ] 목표치 5 · 6[1,5] → 6 · 성공');
   assert.equal(parseCocofoliaRoll(insane).label, 'inSANe 판정');

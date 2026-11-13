@@ -88,3 +88,23 @@ export function parseCocofoliaRoll(text: string): DiceRollSummary | null {
     ...(bonus ? { note: `${bonus > 0 ? '보너스' : '페널티'} 주사위 ${Math.abs(bonus)}` } : {}),
   };
 }
+
+/** Format recognized rolls after source adapters, for every reader format. */
+export function formatLogDiceHtml(html: string): string {
+  if (!/\b(?:SG|2D6|CC)/i.test(html)) return html;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  let changed = false;
+  const preserved = 'table, img, video, audio, pre, code';
+  const visit = (element: Element) => {
+    if (element.matches(preserved)) return;
+    const roll = element.querySelector(preserved) ? null : parseCocofoliaRoll(element.textContent ?? '');
+    if (roll) {
+      element.innerHTML = diceRollHtml(roll);
+      changed = true;
+      return;
+    }
+    Array.from(element.children).forEach(visit);
+  };
+  visit(doc.body);
+  return changed ? doc.body.innerHTML : html;
+}
