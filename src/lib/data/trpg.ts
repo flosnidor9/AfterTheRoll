@@ -4,6 +4,8 @@ import { createDecipheriv, pbkdf2Sync } from 'crypto';
 import matter from 'gray-matter';
 import { getAllFolderSlugs } from '@/lib/data/folders';
 import { TRPG_ARCHIVE_ROOT, TRPG_ASSET_PREFIX, TRPG_PUBLIC_ROOT } from '@/lib/trpgSource';
+import { parseCinematicReplay } from '@/lib/cinematicReplay';
+import { trpgPlatformLabel } from '@/lib/trpgUpload';
 
 const TRPG_ROOT = TRPG_ARCHIVE_ROOT;
 const DATE_TOKEN_PATTERN = /\d{4}[.-]\d{2}[.-]\d{2}/g;
@@ -110,6 +112,33 @@ function parsePostMeta(folderSlug: string, fileName: string): TrpgPostMeta | nul
   const htmlPath = ensureString(data.htmlPath);
   if (!htmlPath) return null;
 
+  let sourceFormat = (['roll20', 'ccfolia', 'cca', 'cinematic'].includes(ensureString(data.sourceFormat)) ? data.sourceFormat : '') as TrpgPostMeta['sourceFormat'];
+  let tags = ensureArray(data.tags);
+  if (sourceFormat === 'cinematic' || tags.some((tag) => /시네마틱|cinematic/i.test(tag))) {
+    // Classify legacy entries from their portable source at build time, before
+    // protected logs are encrypted. No re-upload or metadata rewrite is needed.
+    try {
+      const htmlAbs = resolvePublicHtmlAbs(folderSlug, htmlPath);
+      if (htmlAbs) {
+        let html = fs.readFileSync(htmlAbs, 'utf8');
+        if (htmlPath.endsWith('.parts.json')) {
+          const manifest = JSON.parse(html) as { version?: number; parts?: unknown[] };
+          if (manifest.version !== 1 || !Array.isArray(manifest.parts) || !manifest.parts.length) throw new Error('Invalid log manifest');
+          html = manifest.parts.map((part) => {
+            if (typeof part !== 'string' || part.includes('/') || part.includes('\\') || !part.endsWith('.html')) throw new Error('Invalid log part');
+            return fs.readFileSync(path.join(path.dirname(htmlAbs), part), 'utf8');
+          }).join('');
+        }
+        const replay = parseCinematicReplay(html);
+        sourceFormat = replay.sourceFormat ?? (sourceFormat === 'cinematic' ? '' : sourceFormat);
+        tags = tags.filter((tag) => !/^플랫폼\s*:/.test(tag) && !/^(?:시네마틱|cinematic)(?: 리플레이)?$/i.test(tag));
+        tags.push(`플랫폼: ${trpgPlatformLabel(sourceFormat)}`, '시네마틱');
+      }
+    } catch {
+      // Missing, encrypted or invalid source must not hide the archive entry.
+    }
+  }
+
   return {
     slug: postSlug,
     title: ensureString(data.title, postSlug),
@@ -117,7 +146,7 @@ function parsePostMeta(folderSlug: string, fileName: string): TrpgPostMeta | nul
     playId: ensureString(data.playId),
     description: ensureString(data.description),
     date: ensureString(data.date),
-    tags: ensureArray(data.tags),
+    tags,
     gmName: ensureString(data.gmName),
     gmIconSrc: resolvePostMediaUrl(folderSlug, ensureString(data.gmIconSrc)),
     cast: ensureCast(data.cast).map((entry) => ({
@@ -126,7 +155,7 @@ function parsePostMeta(folderSlug: string, fileName: string): TrpgPostMeta | nul
     })),
     htmlPath,
     htmlUrl: toTrpgPublicUrl(folderSlug, htmlPath),
-    sourceFormat: (['roll20', 'ccfolia', 'cca', 'cinematic'].includes(ensureString(data.sourceFormat)) ? data.sourceFormat : '') as TrpgPostMeta['sourceFormat'],
+    sourceFormat,
     encrypted: !!data.locked,
     mainChannels: ensureArray(data.mainChannels).length > 0 ? ensureArray(data.mainChannels) : undefined,
     whisperChannels: ensureArray(data.whisperChannels).length > 0 ? ensureArray(data.whisperChannels) : undefined,
