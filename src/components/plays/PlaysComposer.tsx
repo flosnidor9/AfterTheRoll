@@ -11,6 +11,7 @@ import {
   type PlayStatus,
   type PlayType,
 } from '@/lib/data/firebasePlays';
+import { reconcilePlayDates } from '@/lib/playDates';
 
 type TitleDates = { startDate: string; endDate: string | null };
 
@@ -387,7 +388,7 @@ export default function PlaysComposer({
   function handleTitleChange(v: string) {
     setTitle(v);
     const dates = titleDatesMap.get(v);
-    if (dates && !editTarget) {
+    if (dates) {
       setStartDate(dates.startDate);
       setEndDate(dates.endDate ?? '');
     }
@@ -427,7 +428,7 @@ export default function PlaysComposer({
     if (!title.trim()) return;
     setSaving(true);
     try {
-      const data = {
+      const data = reconcilePlayDates({
         title: title.trim(),
         rule,
         note: note.trim(),
@@ -438,7 +439,7 @@ export default function PlaysComposer({
         status,
         startDate,
         endDate: endDate || null,
-      };
+      }, titleDatesMap.get(title.trim()));
       if (editTarget) {
         await updatePlay(editTarget.id, data);
       } else {

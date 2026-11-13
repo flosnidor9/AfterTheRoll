@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -9,6 +9,7 @@ import {
   subscribeToPlays,
   subscribeToPlaysOptions,
   deletePlay,
+  updatePlay,
   type PlayEntry,
   type PlaysOptions,
 } from '@/lib/data/firebasePlays';
@@ -17,6 +18,7 @@ import PlaysStats from './PlaysStats';
 import CharacterPreviewModal from '@/components/characters/CharacterPreviewModal';
 import Image from '@/components/ArchiveImage';
 import type { Character } from '@/lib/data/characters';
+import { reconcilePlayDates } from '@/lib/playDates';
 
 const CALENDAR_ID =
   '848efa2587af083c615b7c3581e818075a6489d1d0ce70c4ac3ef60880d0fbae%40group.calendar.google.com';
@@ -66,10 +68,11 @@ function buildTitleDatesMap(events: CalendarEvent[]): Map<string, TitleDates> {
   const raw = new Map<string, string[]>();
   for (const e of events) {
     const date = getEventDate(e);
-    if (!date || !e.summary?.trim()) continue;
-    const arr = raw.get(e.summary) ?? [];
+    const title = e.summary?.trim();
+    if (!date || !title) continue;
+    const arr = raw.get(title) ?? [];
     arr.push(date);
-    raw.set(e.summary, arr);
+    raw.set(title, arr);
   }
   const result = new Map<string, TitleDates>();
   for (const [title, dates] of raw) {
@@ -170,13 +173,8 @@ function formatSessionTime(session: PlaySession): string {
 }
 
 function getEntryDates(entry: PlayEntry, fallback: TitleDates | undefined): TitleDates | null {
-  const startDate = entry.startDate || fallback?.startDate;
-  if (!startDate) return null;
-
-  return {
-    startDate,
-    endDate: entry.endDate ?? fallback?.endDate ?? null,
-  };
+  const dates = reconcilePlayDates(entry, fallback);
+  return dates.startDate ? { startDate: dates.startDate, endDate: dates.endDate } : null;
 }
 
 function getDisplayedParticipants(entry: PlayEntry): string[] {
@@ -344,7 +342,8 @@ function ColHeader({
 
 export default function PlaysSection({ logLinks = [], characters = [] }: { logLinks?: PlayLogLink[]; characters?: Character[] }) {
   const { isAdmin, loading: authLoading } = useAuth();
-  const [plays, setPlays] = useState<PlayEntry[]>([]);
+  const [storedPlays, setPlays] = useState<PlayEntry[]>([]);
+  const dateSyncAttempts = useRef(new Map<string, string>());
   const [options, setOptions] = useState<PlaysOptions>({
     rules: [],
     playerCounts: [],
@@ -423,6 +422,26 @@ export default function PlaysSection({ logLinks = [], characters = [] }: { logLi
 
   const titleDatesMap = useMemo(() => buildTitleDatesMap(calEvents), [calEvents]);
   const titleSessionsMap = useMemo(() => buildTitleSessionsMap(calEvents), [calEvents]);
+  const plays = useMemo(
+    () => storedPlays.map((entry) => reconcilePlayDates(entry, titleDatesMap.get(entry.title))),
+    [storedPlays, titleDatesMap],
+  );
+
+  useEffect(() => {
+    if (!isAdmin || calLoading || calError) return;
+    storedPlays.forEach((entry) => {
+      const reconciled = reconcilePlayDates(entry, titleDatesMap.get(entry.title));
+      if (reconciled === entry) {
+        dateSyncAttempts.current.delete(entry.id);
+        return;
+      }
+      const signature = JSON.stringify([entry.startDate, entry.endDate, reconciled.startDate, reconciled.endDate]);
+      if (dateSyncAttempts.current.get(entry.id) === signature) return;
+      dateSyncAttempts.current.set(entry.id, signature);
+      void updatePlay(entry.id, { startDate: reconciled.startDate, endDate: reconciled.endDate })
+        .catch((error: unknown) => console.error('플레이 기록 날짜 자동 동기화 실패:', entry.title, error));
+    });
+  }, [isAdmin, calLoading, calError, storedPlays, titleDatesMap]);
 
   const calendarTitles = useMemo(() => {
     const registered = new Set(plays.map((p) => p.title));
