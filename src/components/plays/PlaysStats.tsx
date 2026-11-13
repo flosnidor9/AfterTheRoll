@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { PlayEntry } from '@/lib/data/firebasePlays';
+import type { PlayEntry, PlayType } from '@/lib/data/firebasePlays';
 
 type TitleDates = { startDate: string; endDate: string | null };
 type PlaySessionSummary = {
@@ -11,6 +11,7 @@ type PlaySessionSummary = {
 };
 
 const STATUS_LABEL = { scheduled: '예정', ongoing: '진행', completed: '완주', dropped: '하차' } as const;
+const PLAY_ROLES = ['GM', 'PL'] as const satisfies readonly PlayType[];
 
 type CountEntry = [string, number, string[]];
 type ChartTooltip = { x: number; y: number; label: string; titles: string[] } | null;
@@ -245,6 +246,11 @@ export default function PlaysStats({ plays, titleDatesMap, titleSessionsMap }: P
     statusCounts[p.status] += 1;
   });
 
+  const roleCounts: Record<PlayType, number> = { GM: 0, PL: 0 };
+  plays.forEach((p) => {
+    if (PLAY_ROLES.includes(p.type)) roleCounts[p.type] += 1;
+  });
+
   const searchTerm = participantSearch.trim();
   const matchedPlays = searchTerm
     ? plays.filter((p) => p.participants.some((x) => x.includes(searchTerm)))
@@ -313,6 +319,27 @@ export default function PlaysStats({ plays, titleDatesMap, titleSessionsMap }: P
             </div>
             <div className="afterroll-meta mt-[0.3rem] text-[0.72rem] text-[var(--ledger-muted)]">전체</div>
           </div>
+        </div>
+      </StatCard>
+
+      <StatCard label="역할 기록">
+        <div className="flex flex-col gap-[0.4rem]">
+          {PLAY_ROLES.map((role) => (
+            <div key={role} className="flex items-center gap-[0.6rem]">
+              <span className="afterroll-meta w-[6rem] shrink-0 text-[0.85rem] text-[var(--ledger-ink)]">
+                {role}
+              </span>
+              <div className="h-[0.25rem] flex-1 overflow-hidden rounded-full bg-[rgba(88, 125, 163,0.1)]">
+                <div
+                  className="h-full rounded-full bg-[var(--ledger-accent)]"
+                  style={{ width: `${(roleCounts[role] / plays.length) * 100}%`, opacity: 0.6 }}
+                />
+              </div>
+              <span className="afterroll-meta w-[2.5rem] text-right text-[0.8rem] text-[var(--ledger-muted)]">
+                {roleCounts[role]}
+              </span>
+            </div>
+          ))}
         </div>
       </StatCard>
 
