@@ -121,6 +121,14 @@ function parsePostMeta(folderSlug: string, fileName: string): TrpgPostMeta | nul
       const htmlAbs = resolvePublicHtmlAbs(folderSlug, htmlPath);
       if (htmlAbs) {
         let html = fs.readFileSync(htmlAbs, 'utf8');
+        if (html.trimStart().startsWith('{')) {
+          const payload = JSON.parse(html) as unknown;
+          if (isEncryptedLogPayload(payload)) {
+            const decrypted = decryptTrpgPostHtml(folderSlug, postSlug, payload);
+            if (!decrypted) throw new Error('Unable to read protected replay metadata');
+            html = decrypted;
+          }
+        }
         if (htmlPath.endsWith('.parts.json')) {
           const manifest = JSON.parse(html) as { version?: number; parts?: unknown[] };
           if (manifest.version !== 1 || !Array.isArray(manifest.parts) || !manifest.parts.length) throw new Error('Invalid log manifest');
@@ -135,7 +143,7 @@ function parsePostMeta(folderSlug: string, fileName: string): TrpgPostMeta | nul
         tags.push(`플랫폼: ${trpgPlatformLabel(sourceFormat)}`, '시네마틱');
       }
     } catch {
-      // Missing, encrypted or invalid source must not hide the archive entry.
+      // Missing keys or invalid source must not hide the archive entry.
     }
   }
 
@@ -274,19 +282,8 @@ function getLocalTrpgPasswords(): Record<string, string> | null {
   }
 }
 
-export function getLocalDecryptedTrpgPostHtml(folderSlug: string, postSlug: string): string | null {
-  if (process.env.NODE_ENV !== 'development') return null;
-
-  const post = getTrpgPost(folderSlug, postSlug);
-  if (!post) return null;
-
-  const htmlAbs = resolvePublicHtmlAbs(folderSlug, post.htmlPath);
-  if (!htmlAbs) return null;
-
+function decryptTrpgPostHtml(folderSlug: string, postSlug: string, payload: EncryptedLogPayload): string | null {
   try {
-    const payload = JSON.parse(fs.readFileSync(htmlAbs, 'utf8')) as unknown;
-    if (!isEncryptedLogPayload(payload)) return fs.readFileSync(htmlAbs, 'utf8');
-
     const passwords = getLocalTrpgPasswords();
     if (!passwords) return null;
     const passwordKey = `${normalizeSlug(folderSlug)}/${postSlug}`;
@@ -296,7 +293,7 @@ export function getLocalDecryptedTrpgPostHtml(folderSlug: string, postSlug: stri
     );
 
     // Older logs can have a differently normalized Korean filename in the
-    // password index. Development may safely try the local password archive
+    // password index. Try the locally available password archive
     // so these logs still open automatically.
     for (const password of new Set(candidates)) {
       try {
@@ -312,6 +309,24 @@ export function getLocalDecryptedTrpgPostHtml(folderSlug: string, postSlug: stri
     return null;
   } catch {
     return null;
+  }
+}
+
+export function getLocalDecryptedTrpgPostHtml(folderSlug: string, postSlug: string): string | null {
+  if (process.env.NODE_ENV !== 'development') return null;
+
+  const post = getTrpgPost(folderSlug, postSlug);
+  if (!post) return null;
+
+  const htmlAbs = resolvePublicHtmlAbs(folderSlug, post.htmlPath);
+  if (!htmlAbs) return null;
+
+  const html = fs.readFileSync(htmlAbs, 'utf8');
+  try {
+    const payload = JSON.parse(html) as unknown;
+    return isEncryptedLogPayload(payload) ? decryptTrpgPostHtml(folderSlug, postSlug, payload) : html;
+  } catch {
+    return html;
   }
 }
 

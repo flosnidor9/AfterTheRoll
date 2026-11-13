@@ -8,6 +8,7 @@ import type { TrpgArchivePostMeta } from '@/lib/data/trpg';
 import { toGalleryPath } from '@/lib/galleryPath';
 import TrpgUploadButton from '@/components/trpg/TrpgUploadButton';
 import TrpgLogDeleteButton from '@/components/trpg/TrpgLogDeleteButton';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Props = {
   posts: TrpgArchivePostMeta[];
@@ -30,6 +31,8 @@ function tagLabel(tag: string) {
 }
 
 export default function TrpgArchiveClient({ posts, title, backHref, backLabel }: Props) {
+  const { isAdmin, loading } = useAuth();
+  const showAdminActions = !loading && isAdmin;
   const [activeTags, setActiveTags] = useState<string[]>([]);
 
   const uniqueTags = new Set<string>();
@@ -108,6 +111,17 @@ export default function TrpgArchiveClient({ posts, title, backHref, backLabel }:
               >
                 전체
               </motion.button>
+              <motion.button
+                type="button"
+                aria-pressed={activeTags.includes('시네마틱')}
+                onClick={() => toggleTag('시네마틱')}
+                whileTap={{ scale: 0.98 }}
+                className={`afterroll-meta rounded-[0.08rem] px-[0.65rem] py-[0.42rem] text-left text-[0.78rem] transition-colors ${
+                  activeTags.includes('시네마틱') ? 'ledger-index-tab-active' : 'ledger-index-tab'
+                }`}
+              >
+                시네마틱
+              </motion.button>
               {TAG_FILTER_GROUPS.map((group) => {
                 const groupTags = tags.filter((tag) => tag.startsWith(group.prefix));
                 if (groupTags.length === 0) return null;
@@ -158,7 +172,7 @@ export default function TrpgArchiveClient({ posts, title, backHref, backLabel }:
                     <li key={post.fullSlug} className="relative">
                       <Link
                         href={`/archive/read/${toGalleryPath(post.fullSlug)}`}
-                        className="group relative grid gap-[0.65rem] border-l border-[var(--atr-line)] bg-[rgba(0,0,0,0.26)] px-[0.85rem] py-[0.75rem] pr-[4.5rem] transition duration-200 hover:border-[var(--atr-line-strong)] hover:bg-[rgba(88,125,163,0.07)] md:grid-cols-[minmax(0,1fr)_auto]"
+                        className={`group relative grid gap-[0.65rem] border-l border-[var(--atr-line)] bg-[rgba(0,0,0,0.26)] px-[0.85rem] py-[0.75rem] ${showAdminActions ? 'pr-[4.5rem]' : ''} transition duration-200 hover:border-[var(--atr-line-strong)] hover:bg-[rgba(88,125,163,0.07)] md:grid-cols-[minmax(0,1fr)_auto]`}
                       >
                         <div className="relative z-[1] flex flex-col gap-[0.8rem] md:flex-row md:items-start md:justify-between md:gap-[1rem]">
                           <div className="min-w-0">

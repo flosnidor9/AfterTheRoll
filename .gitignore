@@ -48,7 +48,7 @@ passwords.enc.json
 /public/images/gallery/
 
 # Local directory junction to the sibling private Trpg-Logs repository.
-/public/trpg-logs/
+/public/trpg-logs
 
 # 로컬 뷰 테스트용 임시 캐릭터 이미지
 /public/images/characters/test/
