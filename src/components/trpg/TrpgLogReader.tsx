@@ -9,6 +9,7 @@ import type { TrpgCastEntry } from '@/lib/data/trpg';
 import { expandCcaArchive } from '@/lib/ccaArchive';
 import { resolveRoll20AssetUrl } from '@/lib/trpgLogAssets';
 import { paginateEntries } from '@/lib/trpgLogPagination';
+import { parseCocofoliaRoll, diceRollHtml } from '@/lib/cocofoliaRoll';
 import { splitCinematicContent, type CinematicContent } from '@/lib/cinematicContent';
 import { buildReplaySteps, isCinematicReplay, parseCinematicReplay, replayMediaSource, replayMessageHtml, replayMessageVisible } from '@/lib/cinematicReplay';
 import CinematicLogPlayer from './CinematicLogPlayer';
@@ -321,7 +322,9 @@ function parseCcfoliaEntries(html: string, avatarMap: Record<string, string>, ma
     const contentSpan = spans[2];
     if (!contentSpan) continue;
 
-    const contentHtml = sanitizeHtml(contentSpan.innerHTML.trim());
+    const roll = contentSpan.querySelector('img, table, video, audio')
+      ? null : parseCocofoliaRoll(contentSpan.textContent ?? '');
+    const contentHtml = sanitizeHtml(roll ? diceRollHtml(roll) : contentSpan.innerHTML.trim());
     if (!contentHtml) continue;
 
     parsed.push({
