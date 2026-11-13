@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildReplaySteps, compactFieldMotions, fieldFrame, isCinematicReplay, parseCinematicReplay, replayMediaSource, replayMessageHtml, replayMessageVisible, youtubeVideoId } from '../src/lib/cinematicReplay.ts';
 import { createCinematicEntries, createReaderEntries } from '../src/lib/trpgLogPlayback.ts';
-import { buildTrpgUploadFiles } from '../src/lib/trpgUpload.ts';
+import { buildLogTags, buildTrpgUploadFiles } from '../src/lib/trpgUpload.ts';
 
 const replay = (overrides = {}) => ({ format: 'rollscene-studio-project-v1', assets: {}, messages: [{ id: 'one', body: 'first' }, { id: 'two', body: 'second' }], events: [], ...overrides });
 const event = (layer, sequence, overrides = {}) => ({ layer, position: 0, sequence, ...overrides });
@@ -88,4 +88,23 @@ test('upload metadata keeps the cinematic format and complete portable source', 
   const upload = buildTrpgUploadFiles({ title: 'Cinematic', date: '2026-11-11', calendarEventId: '', playId: '', gmName: '', description: '', tags: [], format: 'cinematic', locked: false, mainChannels: [], whisperChannels: [], sourceFileName: 'replay.html', sourceHtml: '<html>portable source</html>', cast: [] });
   assert.ok(upload.files.find(file => file.path.endsWith('.md')).content.includes('sourceFormat: "cinematic"'));
   assert.equal(upload.files.find(file => file.path.endsWith('.html')).content, '<html>portable source</html>');
+});
+
+test('cinematic uploads classify by original platform and add a separate cinematic tag', () => {
+  for (const sourceFormat of ['roll20', 'ccfolia', 'cca', undefined, 'unsupported']) {
+    const html = `const B64="${Buffer.from(JSON.stringify(replay({ sourceFormat }))).toString('base64')}";`;
+    const parsed = parseCinematicReplay(html);
+    const expectedFormat = ['roll20', 'ccfolia', 'cca'].includes(sourceFormat) ? sourceFormat : '';
+    assert.equal(parsed.sourceFormat ?? '', expectedFormat);
+    const tags = buildLogTags('CoC', '4', 'campaign', 'cinematic', parsed.sourceFormat);
+    const platform = sourceFormat === 'roll20' ? 'Roll20' : ['ccfolia', 'cca'].includes(sourceFormat) ? '코코포리아' : '원본 플랫폼 미상';
+    assert.deepEqual(tags, ['룰: CoC', '인원수: 4', '유형: campaign', `플랫폼: ${platform}`, '시네마틱']);
+    const upload = buildTrpgUploadFiles({ title: 'Cinematic', date: '2026-11-11', calendarEventId: '', playId: '', gmName: '', description: '', tags, format: 'cinematic', sourceFormat: expectedFormat, locked: false, mainChannels: [], whisperChannels: [], sourceFileName: 'replay.html', sourceHtml: html, cast: [] });
+    const markdown = upload.files.find(file => file.path.endsWith('.md')).content;
+    assert.ok(markdown.includes(`sourceFormat: ${JSON.stringify(expectedFormat)}`));
+    assert.ok(markdown.includes('  - "시네마틱"'));
+    assert.equal(upload.files.find(file => file.path.endsWith('.html')).content, html);
+  }
+  assert.deepEqual(buildLogTags('', '', '', 'roll20'), ['플랫폼: Roll20']);
+  assert.deepEqual(buildLogTags('', '', '', 'cca'), ['플랫폼: 코코포리아']);
 });

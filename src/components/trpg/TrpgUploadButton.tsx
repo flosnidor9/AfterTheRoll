@@ -4,7 +4,7 @@ import { ChangeEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToPlays, type PlayEntry } from '@/lib/data/firebasePlays';
-import { buildTrpgUploadFiles, commitTrpgUploadAtomically, encryptTrpgLogContent, resolveTrpgUploadTitle, saveTrpgPassword, type TrpgUploadDraft, type TrpgUploadMediaFile } from '@/lib/trpgUpload';
+import { buildLogTags, trpgPlatformLabel, buildTrpgUploadFiles, commitTrpgUploadAtomically, encryptTrpgLogContent, resolveTrpgUploadTitle, saveTrpgPassword, type TrpgUploadDraft, type TrpgUploadMediaFile } from '@/lib/trpgUpload';
 import { expandCcaArchive, isCompressedCcaArchive } from '@/lib/ccaArchive';
 import { isCinematicReplay, parseCinematicReplay, replayMediaSource } from '@/lib/cinematicReplay';
 
@@ -222,16 +222,6 @@ function groupCalendarMatches(matches: CalendarMatch[]) {
   return [...sessions.values()];
 }
 
-function buildLogTags(rule: string, playerCount: string, type: string, format: TrpgUploadDraft['format']) {
-  const platform = format === 'cinematic' ? '시네마틱' : format === 'roll20' ? 'Roll20' : '코코포리아';
-  return [
-    ...(rule ? [`룰: ${rule}`] : []),
-    ...(playerCount ? [`인원수: ${playerCount}`] : []),
-    ...(type ? [`유형: ${type}`] : []),
-    `플랫폼: ${platform}`,
-  ];
-}
-
 function detectUploadFormat(html: string): TrpgUploadDraft['format'] {
   if (isCinematicReplay(html)) return 'cinematic';
   if ((/class=["'][^"']*icecandy-export/.test(html) && /data-skin=["']roll20/.test(html)) || /class=["'][^"']*\bmessage\b/.test(html)) {
@@ -308,6 +298,7 @@ export default function TrpgUploadButton() {
   const [playerCount, setPlayerCount] = useState('');
   const [playType, setPlayType] = useState('');
   const [format, setFormat] = useState<TrpgUploadDraft['format']>('roll20');
+  const [replaySourceFormat, setReplaySourceFormat] = useState<NonNullable<TrpgUploadDraft['sourceFormat']>>('');
   const [mainChannels, setMainChannels] = useState('main');
   const [whisperChannels, setWhisperChannels] = useState('');
   const [locked, setLocked] = useState(false);
@@ -407,6 +398,7 @@ export default function TrpgUploadButton() {
         const replay = parseCinematicReplay(html);
         setSource({ name: file.name, html });
         setFormat('cinematic');
+        setReplaySourceFormat(replay.sourceFormat ?? '');
         setSpeakers(uniqueNames(replay.messages.map(message => message.speaker)));
         setImageSources([...new Set(replay.messages.map(message => replayMediaSource(message.portrait, replay.assets)).filter(Boolean))]);
         setLocalImagePreviews({}); setCastSelections([]); setHoveredImageSource(null); setStatus(null);
@@ -417,6 +409,7 @@ export default function TrpgUploadButton() {
     const previewHtml = await expandCcaArchive(html);
     setSource({ name: file.name, html });
     setFormat(detectUploadFormat(html));
+    setReplaySourceFormat('');
     setSpeakers(extractSpeakers(previewHtml));
     const nextImageSources = extractImageSources(previewHtml);
     setImageSources(nextImageSources);
@@ -464,6 +457,7 @@ export default function TrpgUploadButton() {
     setPlayerCount('');
     setPlayType('');
     setFormat('roll20');
+    setReplaySourceFormat('');
     setMainChannels('main');
     setWhisperChannels('');
     setLocked(false);
@@ -505,7 +499,7 @@ export default function TrpgUploadButton() {
     const sourceHtml = roll20Source?.html ?? source.html;
     const draft: TrpgUploadDraft = {
       title: title.trim(), calendarEventId: selectedCalendarMatch.eventId, playId: connectedPlay.id, gmName: gmName.trim(), description: description.trim(), date,
-      tags: buildLogTags(rule, playerCount, playType, format), format, locked,
+      tags: buildLogTags(rule, playerCount, playType, format, replaySourceFormat), format, sourceFormat: format === 'cinematic' ? replaySourceFormat : undefined, locked,
       mainChannels: format === 'roll20' ? [] : tagsFromInput(mainChannels),
       whisperChannels: format === 'roll20' ? [] : tagsFromInput(whisperChannels),
       sourceFileName: source.name, sourceHtml: locked ? await encryptTrpgLogContent(sourceHtml, password) : sourceHtml,
@@ -540,7 +534,7 @@ export default function TrpgUploadButton() {
   };
 
   const previewPath = source && title && date.match(/^\d{4}/)
-    ? buildTrpgUploadFiles({ title, calendarEventId: selectedCalendarMatch?.eventId ?? '', playId: '', gmName, description, date, tags: buildLogTags(rule, playerCount, playType, format), format, locked, mainChannels: format === 'roll20' ? [] : tagsFromInput(mainChannels), whisperChannels: format === 'roll20' ? [] : tagsFromInput(whisperChannels), sourceFileName: source.name, sourceHtml: source.html, cast: castSelections.map(({ plName, pcName, imageIndex }) => ({ plName, pcName, iconSrc: imageIndex === null ? '' : imageSources[imageIndex] ?? '' })) }).folderPath
+    ? buildTrpgUploadFiles({ title, calendarEventId: selectedCalendarMatch?.eventId ?? '', playId: '', gmName, description, date, tags: buildLogTags(rule, playerCount, playType, format, replaySourceFormat), format, sourceFormat: format === 'cinematic' ? replaySourceFormat : undefined, locked, mainChannels: format === 'roll20' ? [] : tagsFromInput(mainChannels), whisperChannels: format === 'roll20' ? [] : tagsFromInput(whisperChannels), sourceFileName: source.name, sourceHtml: source.html, cast: castSelections.map(({ plName, pcName, imageIndex }) => ({ plName, pcName, iconSrc: imageIndex === null ? '' : imageSources[imageIndex] ?? '' })) }).folderPath
     : null;
 
   return (
@@ -602,9 +596,10 @@ export default function TrpgUploadButton() {
                 <TagChipField label="유형" options={playTypes} value={playType} onChange={setPlayType} />
                 <Field label="플랫폼">
                   <span className="afterroll-meta inline-flex rounded-full border border-[var(--atr-accent)] bg-[rgba(88,125,163,0.14)] px-[0.55rem] py-[0.2rem] text-[0.72rem] text-[var(--atr-accent)]">
-                    {format === 'cinematic' ? '시네마틱' : format === 'roll20' ? 'Roll20' : '코코포리아'}
+                    {trpgPlatformLabel(format === 'cinematic' ? replaySourceFormat : format)}
                   </span>
                 </Field>
+                {format === 'cinematic' ? <Field label="태그"><span className="afterroll-meta text-[0.72rem] text-[var(--atr-accent)]">시네마틱</span></Field> : null}
               </div>
               {format !== 'roll20' && format !== 'cinematic' ? <>
                 <Field label="메인 채널 (쉼표로 구분)"><input value={mainChannels} onChange={(event) => setMainChannels(event.target.value)} placeholder="main" /></Field>

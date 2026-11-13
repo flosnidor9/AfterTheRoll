@@ -31,6 +31,7 @@ export type ReplayEvent = {
 };
 export type CinematicReplay = {
   format: 'rollscene-studio-project-v1'; title?: string;
+  sourceFormat?: 'roll20' | 'ccfolia' | 'cca';
   messages: ReplayMessage[]; events: ReplayEvent[];
   assets: Record<string, { src?: string }>;
   settings?: { cameraZoom?: number; showFieldObjects?: boolean; narrators?: string[] };
@@ -75,7 +76,8 @@ export function parseCinematicReplay(html: string): CinematicReplay {
     narrators: Array.isArray(value.settings.narrators) ? value.settings.narrators.filter(name => typeof name === 'string') : undefined,
   } : undefined;
   const tabVisibility = Object.fromEntries(Object.entries(value.tabVisibility ?? {}).filter(([, visible]) => typeof visible === 'boolean'));
-  return { ...value, assets, settings, tabVisibility };
+  const sourceFormat = ['roll20', 'ccfolia', 'cca'].includes(value.sourceFormat ?? '') ? value.sourceFormat : undefined;
+  return { ...value, sourceFormat, assets, settings, tabVisibility };
 }
 
 export function replayMediaSource(value: unknown, assets: CinematicReplay['assets'] = {}, baseUrl?: string): string {

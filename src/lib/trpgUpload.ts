@@ -27,6 +27,7 @@ export type TrpgUploadDraft = {
   date: string;
   tags: string[];
   format: 'roll20' | 'ccfolia' | 'cca' | 'cinematic';
+  sourceFormat?: 'roll20' | 'ccfolia' | 'cca' | '';
   locked: boolean;
   mainChannels: string[];
   whisperChannels: string[];
@@ -54,6 +55,22 @@ export type DeploymentEditDraft = DeploymentUploadDraft & {
 
 function yamlValue(value: string) {
   return JSON.stringify(value);
+}
+
+export function trpgPlatformLabel(format: string) {
+  if (format === 'roll20') return 'Roll20';
+  if (format === 'ccfolia' || format === 'cca') return '코코포리아';
+  return '원본 플랫폼 미상';
+}
+
+export function buildLogTags(rule: string, playerCount: string, type: string, format: TrpgUploadDraft['format'], sourceFormat: NonNullable<TrpgUploadDraft['sourceFormat']> = '') {
+  return [
+    ...(rule ? [`룰: ${rule}`] : []),
+    ...(playerCount ? [`인원수: ${playerCount}`] : []),
+    ...(type ? [`유형: ${type}`] : []),
+    `플랫폼: ${trpgPlatformLabel(format === 'cinematic' ? sourceFormat : format)}`,
+    ...(format === 'cinematic' ? ['시네마틱'] : []),
+  ];
 }
 
 function safeSegment(value: string, fallback: string) {
@@ -126,7 +143,7 @@ export function buildTrpgUploadFiles(draft: TrpgUploadDraft) {
     'tags:',
     ...draft.tags.map((tag) => `  - ${yamlValue(tag)}`),
     `htmlPath: ${yamlValue(htmlPath)}`,
-    `sourceFormat: ${yamlValue(draft.format)}`,
+    `sourceFormat: ${yamlValue(draft.sourceFormat ?? draft.format)}`,
     ...(cast.length > 0
       ? ['cast:', ...cast.flatMap((entry) => [
         `  - plName: ${yamlValue(entry.plName)}`,
