@@ -30,7 +30,9 @@ export default function CinematicScene({ scene, replay, baseUrl, onPendingChange
   const loaded = useCallback((source: string) => setLoadedSources(current => current.has(source) ? current : new Set([...current, source])), []);
   const recordRatio = useCallback((source: string, ratio: number) => setImageRatios(current => current[source] === ratio ? current : { ...current, [source]: ratio }), []);
   const validObjects = useMemo(() => showObjects && activeFrame ? (scene.fields?.objects ?? []).filter(o => o && typeof o.id === 'string' && ['x', 'y', 'width', 'height', 'rotation', 'zIndex'].every(k => Number.isFinite(o[k as keyof typeof o])) && o.width > 0 && o.height > 0) : [], [showObjects, activeFrame, scene.fields]);
-  const foregroundSize = scene.foregroundEvent?.imageSize;
+  const foregroundSource = scene.foreground || scene.background;
+  const imageSize = scene.foregroundEvent?.imageSize;
+  const foregroundSize = imageSize && imageSize.width > 0 && imageSize.height > 0 ? imageSize : null;
   const standaloneScale = foregroundSize && foregroundSize.width > 0 && foregroundSize.height > 0 ? Math.min(1, viewport.width * STANDALONE_FOREGROUND_FIT / (foregroundSize.width * BOARD_UNIT_REM), viewport.height * STANDALONE_FOREGROUND_FIT / (foregroundSize.height * BOARD_UNIT_REM)) : 1;
   const foreground = useMemo(() => activeFrame ? {
     x: -activeFrame.x, y: -activeFrame.y,
@@ -63,18 +65,18 @@ export default function CinematicScene({ scene, replay, baseUrl, onPendingChange
   // Camera gestures change only the outer transform; retain the image subtree.
   const backgroundLayer = useMemo(() => (
     <AnimatePresence initial={false}>
-        {scene.background && !failedSources.has(scene.background) && <motion.div key={scene.background} initial={{ opacity: 0 }} animate={{ opacity: loadedSources.has(scene.background) ? 1 : 0 }} exit={{ opacity: 0 }} transition={transition} className="pointer-events-none absolute inset-0" style={{ filter: scene.foreground ? 'blur(0.5rem)' : undefined }}>
+        {scene.background && !failedSources.has(scene.background) && <motion.div key={scene.background} initial={{ opacity: 0 }} animate={{ opacity: loadedSources.has(scene.background) ? 1 : 0 }} exit={{ opacity: 0 }} transition={transition} className="pointer-events-none absolute inset-0" style={{ filter: 'blur(0.5rem)' }}>
           <CinematicSceneImage src={scene.background} alt="현재 배경" className="object-cover" onLoaded={loaded} onFailed={failed} />
         </motion.div>}
       </AnimatePresence>
-  ), [scene.background, scene.foreground, failedSources, loadedSources, transition, loaded, failed]);
+  ), [scene.background, failedSources, loadedSources, transition, loaded, failed]);
   const boardLayers = useMemo(() => (
     <div className="absolute inset-0" style={{ transform: `scale(${fitScale})`, transformOrigin: '50% 50%' }}>
           <AnimatePresence initial={false}>
-            {scene.foreground && !failedSources.has(scene.foreground) && <motion.div key={scene.foreground} initial={{ opacity: 0 }} animate={{ opacity: loadedSources.has(scene.foreground) ? 1 : 0 }} exit={{ opacity: 0 }} transition={transition}
+            {foregroundSource && !failedSources.has(foregroundSource) && <motion.div key={foregroundSource} initial={{ opacity: 0 }} animate={{ opacity: loadedSources.has(foregroundSource) ? 1 : 0 }} exit={{ opacity: 0 }} transition={transition}
               className={foreground ? 'absolute left-1/2 top-1/2' : 'absolute inset-[6%]'}
               style={foreground ? { width: `${foreground.width * BOARD_UNIT_REM}rem`, height: `${foreground.height * BOARD_UNIT_REM}rem`, marginLeft: `${(foreground.x - foreground.width / 2) * BOARD_UNIT_REM}rem`, marginTop: `${(foreground.y - foreground.height / 2) * BOARD_UNIT_REM}rem` } : undefined}>
-              <CinematicSceneImage src={scene.foreground} alt="현재 전경" className={foreground ? 'object-fill' : 'object-contain'} onLoaded={loaded} onFailed={failed} />
+              <CinematicSceneImage src={foregroundSource} alt={scene.foreground ? "현재 전경" : "현재 배경"} className={foreground ? 'object-fill' : 'object-contain'} onLoaded={loaded} onFailed={failed} />
             </motion.div>}
           </AnimatePresence>
           <div className="absolute inset-0" style={{ zIndex: 1 }}>
@@ -92,7 +94,7 @@ export default function CinematicScene({ scene, replay, baseUrl, onPendingChange
             </AnimatePresence>
           </div>
         </div>
-  ), [fitScale, scene.foreground, foreground, activeFrame, validObjects, failedSources, loadedSources, imageRatios, replay.assets, baseUrl, transition, loaded, failed, recordRatio]);
+  ), [fitScale, scene.foreground, foregroundSource, foreground, activeFrame, validObjects, failedSources, loadedSources, imageRatios, replay.assets, baseUrl, transition, loaded, failed, recordRatio]);
 
   const rebase = () => {
     const points = [...gesture.current.points.values()];
