@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import CinematicSceneImage from './CinematicSceneImage';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BOARD_FIT, BOARD_UNIT_REM, fieldFrame, MAX_CAMERA_ZOOM, MIN_CAMERA_ZOOM, replayMediaSource, SCENE_TRANSITION_SECONDS, type CinematicReplay, type ReplaySceneState } from '@/lib/cinematicReplay';
@@ -8,7 +8,6 @@ import { BOARD_FIT, BOARD_UNIT_REM, fieldFrame, MAX_CAMERA_ZOOM, MIN_CAMERA_ZOOM
 type Props = { scene: ReplaySceneState; replay: CinematicReplay; baseUrl?: string; onPendingChange: (pending: boolean) => void };
 const DEFAULT_ZOOM = 1;
 const DRAG_THRESHOLD = 5;
-const IMAGE_SIZES = '100vw';
 const STANDALONE_FOREGROUND_FIT = 0.75;
 const clampZoom = (zoom: number) => Math.max(MIN_CAMERA_ZOOM, Math.min(MAX_CAMERA_ZOOM, zoom));
 
@@ -65,7 +64,7 @@ export default function CinematicScene({ scene, replay, baseUrl, onPendingChange
   const backgroundLayer = useMemo(() => (
     <AnimatePresence initial={false}>
         {scene.background && !failedSources.has(scene.background) && <motion.div key={scene.background} initial={{ opacity: 0 }} animate={{ opacity: loadedSources.has(scene.background) ? 1 : 0 }} exit={{ opacity: 0 }} transition={transition} className="pointer-events-none absolute inset-0" style={{ filter: scene.foreground ? 'blur(0.5rem)' : undefined }}>
-          <Image src={scene.background} alt="현재 배경" fill sizes={IMAGE_SIZES} unoptimized className="object-cover" onLoad={() => loaded(scene.background)} onError={() => failed(scene.background)} />
+          <CinematicSceneImage src={scene.background} alt="현재 배경" className="object-cover" onLoaded={loaded} onFailed={failed} />
         </motion.div>}
       </AnimatePresence>
   ), [scene.background, scene.foreground, failedSources, loadedSources, transition, loaded, failed]);
@@ -75,7 +74,7 @@ export default function CinematicScene({ scene, replay, baseUrl, onPendingChange
             {scene.foreground && !failedSources.has(scene.foreground) && <motion.div key={scene.foreground} initial={{ opacity: 0 }} animate={{ opacity: loadedSources.has(scene.foreground) ? 1 : 0 }} exit={{ opacity: 0 }} transition={transition}
               className={foreground ? 'absolute left-1/2 top-1/2' : 'absolute inset-[6%]'}
               style={foreground ? { width: `${foreground.width * BOARD_UNIT_REM}rem`, height: `${foreground.height * BOARD_UNIT_REM}rem`, marginLeft: `${(foreground.x - foreground.width / 2) * BOARD_UNIT_REM}rem`, marginTop: `${(foreground.y - foreground.height / 2) * BOARD_UNIT_REM}rem` } : undefined}>
-              <Image src={scene.foreground} alt="현재 전경" fill sizes={IMAGE_SIZES} unoptimized className={foreground ? 'object-fill' : 'object-contain'} onLoad={() => loaded(scene.foreground)} onError={() => failed(scene.foreground)} />
+              <CinematicSceneImage src={scene.foreground} alt="현재 전경" className={foreground ? 'object-fill' : 'object-contain'} onLoaded={loaded} onFailed={failed} />
             </motion.div>}
           </AnimatePresence>
           <div className="absolute inset-0" style={{ zIndex: 1 }}>
@@ -87,7 +86,7 @@ export default function CinematicScene({ scene, replay, baseUrl, onPendingChange
                 const height = figure && imageRatios[src] ? object.width * imageRatios[src] : object.height;
                 const pose = { x: `${(object.x - activeFrame!.x) * BOARD_UNIT_REM}rem`, y: `${(object.y + (figure ? object.width - height : 0) - activeFrame!.y) * BOARD_UNIT_REM}rem`, width: `${object.width * BOARD_UNIT_REM}rem`, height: `${height * BOARD_UNIT_REM}rem`, rotate: object.rotation, opacity: loadedSources.has(src) ? 1 : 0 };
                 return <motion.div key={object.id} data-field-object={object.id} data-field-kind={object.kind ?? 'screen-marker'} initial={{ ...pose, opacity: 0 }} animate={pose} exit={{ opacity: 0 }} transition={transition} className="absolute left-1/2 top-1/2" style={{ zIndex: object.zIndex, transformOrigin: figure ? '50% 100%' : '50% 50%', willChange: 'transform, opacity' }}>
-                  <Image src={src} alt={figure ? '장면 figure' : '장면 스크린·마커'} fill sizes={IMAGE_SIZES} unoptimized className="object-fill" onLoad={event => { loaded(src); if (figure) { const image = event.currentTarget; recordRatio(src, image.naturalHeight / image.naturalWidth); } }} onError={() => failed(src)} />
+                  <CinematicSceneImage src={src} alt={figure ? '장면 figure' : '장면 스크린·마커'} className="object-fill" onLoaded={loaded} onFailed={failed} onRatio={figure ? recordRatio : undefined} />
                 </motion.div>;
               })}
             </AnimatePresence>

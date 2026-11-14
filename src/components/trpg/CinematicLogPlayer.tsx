@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { createPortal, flushSync } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type SyntheticEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { LogEntry } from './TrpgLogReader';
 import CinematicDialogue from './CinematicDialogue';
 import CinematicImage from './CinematicImage';
@@ -38,6 +38,8 @@ const AUTO_ADVANCE_CHARACTER_MS = 30;
 const AUTO_ADVANCE_MAX_MS = 10000;
 const INITIAL_POSITION = { index: 0, complete: false, reveal: false };
 const CONTROL_CLASS = 'shrink-0 whitespace-nowrap rounded border border-white/20 bg-[#17191c]/85 px-2 py-2 text-xs text-stone-200 hover:bg-[#242629] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-stone-300 disabled:opacity-30 md:px-4 md:text-sm';
+
+const hideFailedPortrait = (event: SyntheticEvent<HTMLImageElement>) => { event.currentTarget.style.visibility = 'hidden'; };
 
 export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex, onClose, onOpenChange, onPlaybackIndexChange, onMusicControlsHost, replay, replaySteps, replayBaseUrl }: Props) {
   const [open, setOpen] = useState(false);
@@ -246,7 +248,7 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
                       transition={{ duration: reducedMotion ? 0 : TRANSITION_SECONDS }}
                       className="absolute inset-y-0 inset-x-0 mx-auto w-[72vw] max-w-md md:inset-x-auto md:left-8 md:mx-0 md:w-[28vw] md:max-w-sm"
                     >
-                      <Image key={entry.avatarSrc} src={entry.avatarSrc} alt="" fill sizes="(min-width: 48rem) 28vw, 72vw" unoptimized className="object-contain object-bottom" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />
+                      <Image key={entry.avatarSrc} src={entry.avatarSrc} alt="" fill sizes="(min-width: 48rem) 28vw, 72vw" unoptimized className="object-contain object-bottom" onError={hideFailedPortrait} />
                     </motion.div>
                   )}
                 </AnimatePresence>
