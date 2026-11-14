@@ -78,6 +78,11 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
     setPosition((current) => current.complete ? current : { ...current, complete: true });
   }, []);
 
+  const followDialogue = useCallback(() => {
+    const viewport = textRef.current;
+    if (viewport) viewport.scrollTop = viewport.scrollHeight;
+  }, []);
+
   const advance = useCallback(() => {
     setPosition((current) => {
       if (!current.complete && !entries[current.index]?.sceneOnly && !entries[current.index]?.cinematicImage) return { ...current, reveal: true };
@@ -264,12 +269,11 @@ export default function CinematicLogPlayer({ entries, fontFamily, getStartIndex,
                   initial={{ opacity: reducedMotion ? 1 : 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: TRANSITION_SECONDS }}
-                  onAnimationStart={() => { if (textRef.current) textRef.current.scrollTop = 0; }}
                   className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2"
                   tabIndex={0}
                   aria-label="현재 대사"
                 >
-                  <CinematicDialogue html={entry.contentHtml} reveal={position.reveal} playbackSpeed={entry.sceneOnly ? 0 : playbackSpeed} preserveLineBreaks={entry.preserveLineBreaks} onComplete={complete} />
+                  <CinematicDialogue html={entry.contentHtml} reveal={position.reveal} playbackSpeed={entry.sceneOnly ? 0 : playbackSpeed} preserveLineBreaks={entry.preserveLineBreaks} onProgress={followDialogue} onComplete={complete} />
                 </motion.div>
               </section>
             </div>}

@@ -17,10 +17,11 @@ type Props = {
   reveal: boolean;
   playbackSpeed: number;
   preserveLineBreaks?: boolean;
+  onProgress: () => void;
   onComplete: () => void;
 };
 
-export default function CinematicDialogue({ html, reveal, playbackSpeed, preserveLineBreaks, onComplete }: Props) {
+export default function CinematicDialogue({ html, reveal, playbackSpeed, preserveLineBreaks, onProgress, onComplete }: Props) {
   const contentRef = useRef<HTMLDivElement>(null);
   const speedRef = useRef(playbackSpeed);
   const reducedMotion = useReducedMotion();
@@ -58,6 +59,7 @@ export default function CinematicDialogue({ html, reveal, playbackSpeed, preserv
       total += characters.length;
     }
     if (reveal || reducedMotion || speedRef.current === 0 || total === 0) {
+      onProgress();
       onComplete();
       return;
     }
@@ -78,13 +80,14 @@ export default function CinematicDialogue({ html, reveal, playbackSpeed, preserv
           node.textContent = characters.slice(0, Math.max(0, count - start)).join('');
         }
         previousCount = count;
+        onProgress();
       }
       if (count < total) frame = requestAnimationFrame(tick);
       else onComplete();
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [html, reveal, reducedMotion, onComplete]);
+  }, [html, reveal, reducedMotion, onProgress, onComplete]);
 
   return (
     <div
