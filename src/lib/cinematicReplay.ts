@@ -10,6 +10,7 @@ export type ReplayMessage = {
   portrait?: string;
   color?: string;
   content?: RichNode[];
+  narration?: boolean;
 };
 export type RichNode = string | {
   tag?: string; text?: string; src?: string; alt?: string; title?: string;
@@ -46,6 +47,7 @@ export type ReplayStep = {
   events: ReplayEvent[]; state: ReplaySceneState; label: string;
 };
 const PAYLOAD_PATTERN = /\bconst\s+B64\s*=\s*(['"])([A-Za-z0-9+/=\s]+)\1\s*;/;
+const DEFAULT_NARRATORS = ['Narrator', '나레이션', '나레이터', 'Narration'];
 const LAYERS = new Set(['background', 'foreground', 'fieldObjects', 'bgm']);
 export const SCENE_TRANSITION_SECONDS = 0.4;
 export const BOARD_UNIT_REM = 1 / 16;
@@ -55,6 +57,13 @@ export const MAX_CAMERA_ZOOM = 3;
 
 export function isCinematicReplay(html: string): boolean {
   return PAYLOAD_PATTERN.test(html);
+}
+
+/** Match the portable player's narration flag and source-configured narrators. */
+export function replayMessageIsNarration(message: ReplayMessage, settings?: CinematicReplay['settings']): boolean {
+  if (message.narration === true) return true;
+  const speaker = String(message.speaker ?? '').trim().toLocaleLowerCase();
+  return (settings?.narrators ?? DEFAULT_NARRATORS).some(name => name.trim().toLocaleLowerCase() === speaker);
 }
 
 export function parseCinematicReplay(html: string): CinematicReplay {

@@ -11,7 +11,7 @@ import { resolveRoll20AssetUrl } from '@/lib/trpgLogAssets';
 import { paginateEntries } from '@/lib/trpgLogPagination';
 import { formatLogDiceHtml } from '@/lib/logDiceFormatting';
 import { splitCinematicContent, type CinematicContent } from '@/lib/cinematicContent';
-import { buildReplaySteps, isCinematicReplay, parseCinematicReplay, replayMediaSource, replayMessageHtml, replayMessageVisible } from '@/lib/cinematicReplay';
+import { buildReplaySteps, isCinematicReplay, parseCinematicReplay, replayMediaSource, replayMessageHtml, replayMessageIsNarration, replayMessageVisible } from '@/lib/cinematicReplay';
 import CinematicLogPlayer from './CinematicLogPlayer';
 import StickyLogToolbar from './StickyLogToolbar';
 import ReaderMusic from './ReaderMusic';
@@ -654,7 +654,7 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, sourceFormat, fall
       return replaySteps.map((step, replayStep): LogEntry => {
         const message = step.message;
         const speaker = String(message?.speaker ?? '');
-        const narrator = !message || !speaker || (replay.settings?.narrators ?? ['Narrator', '나레이션', '나레이터', 'Narration']).includes(speaker);
+        const narrator = !message || replayMessageIsNarration(message, replay.settings);
         return {
           id: step.id, speaker: narrator ? '' : speaker,
           avatarSrc: narrator ? null : replayMediaSource(message?.portrait, replay.assets, replayBaseUrl) || null,

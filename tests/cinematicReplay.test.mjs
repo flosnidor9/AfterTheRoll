@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReplaySteps, compactFieldMotions, fieldFrame, isCinematicReplay, parseCinematicReplay, replayMediaSource, replayMessageHtml, replayMessageVisible, youtubeVideoId } from '../src/lib/cinematicReplay.ts';
+import { buildReplaySteps, compactFieldMotions, fieldFrame, isCinematicReplay, parseCinematicReplay, replayMediaSource, replayMessageHtml, replayMessageIsNarration, replayMessageVisible, youtubeVideoId } from '../src/lib/cinematicReplay.ts';
 import { createCinematicEntries, createReaderEntries } from '../src/lib/trpgLogPlayback.ts';
 import { buildLogTags, buildTrpgUploadFiles } from '../src/lib/trpgUpload.ts';
 
@@ -82,6 +82,20 @@ test('scene changes remain playback events without appearing in the transcript',
   assert.equal(transcript.length, 1);
   assert.equal(transcript[0].id, 'message');
   assert.equal(createCinematicEntries([event, message], {}).length, 2);
+});
+
+test('narration follows original message flags and source settings without guessing speaker names', () => {
+  const messages = [
+    { speaker: 'PC', narration: true },
+    { speaker: 'PC', narration: false },
+    { speaker: '✒️', narration: false },
+    { speaker: 'Custom narrator' },
+  ];
+  const payload = Buffer.from(JSON.stringify(replay({ messages, settings: { narrators: [] } }))).toString('base64');
+  const parsed = parseCinematicReplay(`const B64='${payload}';`);
+  assert.deepEqual(parsed.messages.map(message => replayMessageIsNarration(message, parsed.settings)), [true, false, false, false]);
+  assert.equal(replayMessageIsNarration(messages[3], { narrators: [' custom NARRATOR '] }), true);
+  assert.equal(replayMessageIsNarration({ speaker: '✒️' }, { narrators: [] }), false);
 });
 
 test('upload metadata keeps the cinematic format and complete portable source', () => {
