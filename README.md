@@ -12,7 +12,7 @@ npm run dev
 
 ## Deployment
 
-GitHub 저장소의 Pages에서 Build and deployment를 **GitHub Actions**로 설정하세요. 배포 워크플로는 `main` 브랜치 push 시 실행됩니다.
+GitHub에서 이 저장소의 이름을 `afterTheRoll`로 변경한 뒤, Pages의 Build and deployment를 **GitHub Actions**로 설정하세요. 배포 워크플로는 `main` 브랜치 push 시 실행됩니다.
 
-로그·갤러리 업로드는 Google 관리자 로그인과 Cloudflare Worker를 사용합니다. GitHub 토큰은 Worker에 최초 한 번 등록하고, 콘텐츠는 비공개 `Trpg-Logs`의 별도 브랜치에 저장합니다. 새 업로드는 사이트 재빌드를 요청하지 않습니다. 최초 Worker 연결과 사이트 1회 배포가 필요하며, [연결 방법과 기존 자료 처리](docs/live-archive.md)를 참고하세요.
+TRPG 업로드 기능은 `flosnidor9/AfterTheRoll` 저장소에 비밀번호 데이터를 저장하도록 설정되어 있습니다. 저장소를 다른 이름으로 만들 경우 `src/lib/trpgUpload.ts`의 `TRPG_SITE_REPOSITORY`도 같은 이름으로 바꾸세요.
 

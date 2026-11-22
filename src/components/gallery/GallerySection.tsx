@@ -1,6 +1,6 @@
 'use client';
 
-import Image from '@/components/gallery/GalleryImage';
+import Image from '@/components/ArchiveImage';
 import AlbumReader from '@/components/gallery/AlbumReader';
 import GalleryManagementActions from '@/components/gallery/GalleryManagementActions';
 import { motion } from 'framer-motion';
@@ -8,13 +8,10 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { galleryAlbumThemeColor } from '@/lib/galleryTheme';
 import type { GalleryAlbum } from '@/lib/data/gallery';
-import { useArchiveCatalog } from '@/hooks/useArchiveCatalog';
 
 const coverOf = (album: GalleryAlbum) => album.photos.find((photo) => photo.id === album.coverPhotoId) ?? album.photos[0];
 
-export default function GallerySection({ albums: bundledAlbums }: { albums: GalleryAlbum[] }) {
-  const { catalog, error } = useArchiveCatalog();
-  const albums = catalog ? [...catalog.albums, ...bundledAlbums.filter(album => !catalog.deletedAlbums.includes(album.id) && !catalog.albums.some(live => live.id === album.id))] : bundledAlbums;
+export default function GallerySection({ albums }: { albums: GalleryAlbum[] }) {
   const { isAdmin, loading } = useAuth();
   const [selected, setSelected] = useState<GalleryAlbum | null>(null);
 
@@ -27,7 +24,6 @@ export default function GallerySection({ albums: bundledAlbums }: { albums: Gall
         </div>
         {isAdmin && !loading ? <GalleryManagementActions /> : null}
       </header>
-      {error ? <p role="alert" className="mb-[1rem] text-sm text-[var(--atr-warn)]">최신 갤러리를 불러오지 못했습니다. {error}</p> : null}
       {albums.length ? (
         <div className="grid grid-cols-2 gap-[0.9rem] sm:grid-cols-3 lg:grid-cols-4">
           {albums.map((album) => {

@@ -1,5 +1,4 @@
 'use client';
-import { useLiveLogLinks } from '@/hooks/useLiveLogLinks';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -582,8 +581,7 @@ function DailyTimeline({
 }
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────
-export default function CalendarSection({ logLinks: bundledLogLinks = [], characters = [] }: { logLinks?: CalendarLogLink[]; characters?: Character[] }) {
-  const logLinks = useLiveLogLinks(bundledLogLinks);
+export default function CalendarSection({ logLinks = [], characters = [] }: { logLinks?: CalendarLogLink[]; characters?: Character[] }) {
   const [baseDate, setBaseDate] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);

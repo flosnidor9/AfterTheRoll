@@ -7,7 +7,6 @@ import { AnimatePresence, LayoutGroup, motion, useMotionValue, useReducedMotion,
 import type { Character, CharacterLink } from '@/lib/data/characters';
 import type { SessionLogLink } from './CharactersSection';
 import { useAuth } from '@/contexts/AuthContext';
-import { useLiveLogLinks } from '@/hooks/useLiveLogLinks';
 import { subscribeToPrivateCharacterLinks } from '@/lib/data/firebasePrivateCharacterLinks';
 import { subscribeToPlays, type PlayEntry } from '@/lib/data/firebasePlays';
 import { getShinobigamiMark } from '@/lib/shinobigamiMarks';
@@ -136,8 +135,7 @@ function CharacterInformation({ character, sessions, sessionLogLinks, reducedMot
   </div>;
 }
 
-export default function CharacterShowcase({ characters, sessionLogLinks: bundledLogLinks = [] }: { characters: Character[]; sessionLogLinks?: SessionLogLink[] }) {
-  const sessionLogLinks = useLiveLogLinks(bundledLogLinks);
+export default function CharacterShowcase({ characters, sessionLogLinks = [] }: { characters: Character[]; sessionLogLinks?: SessionLogLink[] }) {
   const { isAdmin } = useAuth();
   const [characterList, setCharacterList] = useState(characters);
   const [activeId, setActiveId] = useState<string | null>(characters.length === 1 ? characters[0].id : null);

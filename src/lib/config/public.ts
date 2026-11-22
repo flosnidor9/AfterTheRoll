@@ -1,5 +1,4 @@
 export const PUBLIC_SITE_CONFIG = {
-  archiveApiUrl: "https://afterroll-archive.papercloud.workers.dev",
   giscus: {
     repo: "flosnidor9/flosnidor9.github.io",
     repoId: "R_kgDORZu8mA",

@@ -4,15 +4,13 @@ import { useId, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { decryptWithMasterKey } from '@/lib/trpgUpload';
 import { isEncryptedPasswordArchive, loadTrpgPasswordArchive, saveTrpgPasswordArchive } from '@/lib/data/firebaseTrpgPasswords';
-import { archiveRequest } from '@/lib/archiveApi';
 
 type Props = {
   passwordKey: string;
   contentLabel?: string;
-  archiveId?: string;
 };
 
-export default function AdminLogPasswordRecovery({ passwordKey, contentLabel = '로그', archiveId }: Props) {
+export default function AdminLogPasswordRecovery({ passwordKey, contentLabel = '로그' }: Props) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState<string | null>(null);
@@ -29,13 +27,6 @@ export default function AdminLogPasswordRecovery({ passwordKey, contentLabel = '
     setError('');
     setLoading(true);
     try {
-      if (archiveId) {
-        const { recovery } = await archiveRequest<{ recovery: string }>(`/logs/${encodeURIComponent(archiveId)}/recovery`, undefined, 'GET', true);
-        const saved = JSON.parse(await decryptWithMasterKey(JSON.parse(recovery), masterKey));
-        if (typeof saved.password !== 'string' || !saved.password) throw new Error('invalid password');
-        setPassword(saved.password);
-        return;
-      }
       let encryptedPasswords = await loadTrpgPasswordArchive();
       if (!encryptedPasswords) {
         setNeedsImport(true);

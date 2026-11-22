@@ -35,7 +35,7 @@ function hexToBuffer(hex: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-export async function decryptContent(data: EncryptedData, password: string): Promise<string> {
+async function decryptContent(data: EncryptedData, password: string): Promise<string> {
   const keyMaterial = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, [
     'deriveKey',
   ]);
