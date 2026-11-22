@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { useId, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
-import Image from '@/components/ArchiveImage';
+import Image from '@/components/gallery/GalleryImage';
 import type { GalleryPhoto } from '@/lib/data/gallery';
 import { makeReaderPages } from '@/lib/galleryPages';
 import type { PhotoPlacement } from '@/lib/galleryOrder';

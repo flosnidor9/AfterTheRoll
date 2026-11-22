@@ -1,0 +1,7 @@
+# Local development only. Copy to worker/.dev.vars (ignored by Git).
+# Production values must be registered using `wrangler secret put`.
+GITHUB_TOKEN="YOUR_FINE_GRAINED_TOKEN"
+FIREBASE_PROJECT_ID="YOUR_EXISTING_FIREBASE_PROJECT"
+FIREBASE_API_KEY="YOUR_EXISTING_FIREBASE_WEB_API_KEY"
+ADMIN_UID="YOUR_GOOGLE_ADMIN_FIREBASE_UID"
+LOCAL_ORIGIN="http://localhost:3000"

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLiveLogLinks } from '@/hooks/useLiveLogLinks';
 import {
   subscribeToPlays,
   subscribeToPlaysOptions,
@@ -340,7 +341,8 @@ function ColHeader({
   );
 }
 
-export default function PlaysSection({ logLinks = [], characters = [] }: { logLinks?: PlayLogLink[]; characters?: Character[] }) {
+export default function PlaysSection({ logLinks: bundledLogLinks = [], characters = [] }: { logLinks?: PlayLogLink[]; characters?: Character[] }) {
+  const logLinks = useLiveLogLinks(bundledLogLinks);
   const { isAdmin, loading: authLoading } = useAuth();
   const [storedPlays, setPlays] = useState<PlayEntry[]>([]);
   const dateSyncAttempts = useRef(new Map<string, string>());

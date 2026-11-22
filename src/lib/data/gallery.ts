@@ -14,6 +14,8 @@ export type GalleryPhoto = {
   /** Stored at upload time so page layout never depends on image-load timing. */
   width?: number;
   height?: number;
+  /** Server-managed chunk references for large uploads. */
+  archiveTransfer?: { uploadId: string; partCount: number };
   /** A spread is an intentional two-page panorama, not merely a wide photo. */
   layout?: 'single' | 'spread';
 };

@@ -4,7 +4,10 @@ import { ChangeEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { subscribeToPlays, type PlayEntry } from '@/lib/data/firebasePlays';
-import { buildLogTags, trpgPlatformLabel, buildTrpgUploadFiles, commitTrpgUploadAtomically, encryptTrpgLogContent, resolveTrpgUploadTitle, saveTrpgPassword, type TrpgUploadDraft, type TrpgUploadMediaFile } from '@/lib/trpgUpload';
+import { buildLogTags, trpgPlatformLabel, type TrpgUploadDraft, type TrpgUploadMediaFile } from '@/lib/trpgUpload';
+import { uploadLiveLog } from '@/lib/liveArchiveUpload';
+import { liveLogHref } from '@/lib/archiveApi';
+import Link from 'next/link';
 import { expandCcaArchive, isCompressedCcaArchive } from '@/lib/ccaArchive';
 import { isCinematicReplay, parseCinematicReplay, replayMediaSource } from '@/lib/cinematicReplay';
 
@@ -276,7 +279,7 @@ export default function TrpgUploadButton() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const roll20AssetInputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
-  const [token, setToken] = useState('');
+  const [uploadedId, setUploadedId] = useState<string | null>(null);
   const [source, setSource] = useState<{ name: string; html: string } | null>(null);
   const [roll20AssetFiles, setRoll20AssetFiles] = useState<File[]>([]);
   const [speakers, setSpeakers] = useState<string[]>([]);
@@ -437,6 +440,7 @@ export default function TrpgUploadButton() {
   };
 
   const resetForm = () => {
+    setUploadedId(null);
     setSource(null);
     setRoll20AssetFiles([]);
     setSpeakers([]);
@@ -489,41 +493,35 @@ export default function TrpgUploadButton() {
       setStatus('비공개 로그의 비밀번호, 비밀번호 확인, 마스터키를 확인해 주세요.');
       return;
     }
-    const accessToken = token.trim();
-    if (!accessToken) {
-      setStatus('GitHub fine-grained access token을 입력해 주세요.');
-      return;
-    }
 
-    const roll20Source = format === 'roll20' ? await prepareRoll20Source(source.html, roll20AssetFiles) : null;
-    const sourceHtml = roll20Source?.html ?? source.html;
-    const draft: TrpgUploadDraft = {
-      title: title.trim(), calendarEventId: selectedCalendarMatch.eventId, playId: connectedPlay.id, gmName: gmName.trim(), description: description.trim(), date,
-      tags: buildLogTags(rule, playerCount, playType, format, replaySourceFormat), format, sourceFormat: format === 'cinematic' ? replaySourceFormat : undefined, locked,
-      mainChannels: format === 'roll20' ? [] : tagsFromInput(mainChannels),
-      whisperChannels: format === 'roll20' ? [] : tagsFromInput(whisperChannels),
-      sourceFileName: source.name, sourceHtml: locked ? await encryptTrpgLogContent(sourceHtml, password) : sourceHtml,
-      mediaFiles: roll20Source?.mediaFiles,
-      cast: castSelections.map(({ plName, pcName, imageIndex }) => ({
-        plName,
-        pcName,
-        iconSrc: imageIndex === null ? '' : roll20Source?.mediaUrls[imageSources[imageIndex] ?? ''] ?? imageSources[imageIndex] ?? '',
-      })),
-    };
+    if (submitting) return;
     setSubmitting(true);
     setStatus('로그 파일과 메타데이터를 저장하는 중…');
     try {
-      const resolvedDraft = await resolveTrpgUploadTitle(accessToken, draft);
-      const folder = await commitTrpgUploadAtomically(accessToken, resolvedDraft);
-      if (locked) {
-        setStatus('비밀번호 목록을 안전하게 갱신하는 중…');
-        const { passwordKey } = buildTrpgUploadFiles(resolvedDraft);
-        await saveTrpgPassword(accessToken, masterKey, passwordKey, password);
-      }
+      const roll20Source = format === 'roll20' ? await prepareRoll20Source(source.html, roll20AssetFiles) : null;
+      const sourceHtml = roll20Source?.html ?? source.html;
+      const draft: TrpgUploadDraft = {
+        title: title.trim(), calendarEventId: selectedCalendarMatch.eventId, playId: connectedPlay.id, gmName: gmName.trim(), description: description.trim(), date,
+        tags: buildLogTags(rule, playerCount, playType, format, replaySourceFormat), format, sourceFormat: format === 'cinematic' ? replaySourceFormat : undefined, locked,
+        mainChannels: format === 'roll20' ? [] : tagsFromInput(mainChannels),
+        whisperChannels: format === 'roll20' ? [] : tagsFromInput(whisperChannels),
+        sourceFileName: source.name, sourceHtml,
+        mediaFiles: roll20Source?.mediaFiles,
+        cast: castSelections.map(({ plName, pcName, imageIndex }) => ({
+          plName,
+          pcName,
+          iconSrc: imageIndex === null ? '' : roll20Source?.mediaUrls[imageSources[imageIndex] ?? ''] ?? imageSources[imageIndex] ?? '',
+        })),
+      };
+      const post = await uploadLiveLog(draft, password, masterKey);
+      setUploadedId(post.archiveId);
+      setPassword('');
+      setPasswordConfirm('');
+      setMasterKey('');
       const missingMediaNote = roll20Source?.missingAssets.length
         ? ` Roll20 내보내기에 들어 있지 않은 이미지 ${roll20Source.missingAssets.slice(0, 3).join(', ')}${roll20Source.missingAssets.length > 3 ? ' 등' : ''}은 제외했습니다.`
         : '';
-      setStatus(`${folder} 업로드를 접수했습니다. 원본 로그를 정리한 뒤 사이트 배포가 자동으로 시작됩니다.${missingMediaNote}`);
+      setStatus(`저장했습니다. 사이트 재배포 없이 로그 목록에 반영되었습니다.${missingMediaNote}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Upload failed with an unknown error.';
       await copyErrorMessage(errorMessage);
@@ -532,10 +530,6 @@ export default function TrpgUploadButton() {
       setSubmitting(false);
     }
   };
-
-  const previewPath = source && title && date.match(/^\d{4}/)
-    ? buildTrpgUploadFiles({ title, calendarEventId: selectedCalendarMatch?.eventId ?? '', playId: '', gmName, description, date, tags: buildLogTags(rule, playerCount, playType, format, replaySourceFormat), format, sourceFormat: format === 'cinematic' ? replaySourceFormat : undefined, locked, mainChannels: format === 'roll20' ? [] : tagsFromInput(mainChannels), whisperChannels: format === 'roll20' ? [] : tagsFromInput(whisperChannels), sourceFileName: source.name, sourceHtml: source.html, cast: castSelections.map(({ plName, pcName, imageIndex }) => ({ plName, pcName, iconSrc: imageIndex === null ? '' : imageSources[imageIndex] ?? '' })) }).folderPath
-    : null;
 
   return (
     <>
@@ -677,8 +671,8 @@ export default function TrpgUploadButton() {
               <p className="afterroll-meta mt-[0.8rem] text-[0.72rem] text-[var(--ledger-soft)]">발화자 후보를 찾지 못했습니다. 이 파일은 CAST 없이 저장됩니다.</p>
             ) : null}
             <Field label="설명"><textarea value={description} onChange={(event) => { const nextDescription = event.target.value; setDescription(nextDescription); setIsDescriptionManual(nextDescription !== generatedDescriptionRef.current); }} rows={3} /></Field>
-            <div className="mt-[0.8rem] border-t border-[var(--atr-line)] pt-[0.8rem]"><Field label="GitHub access token"><input type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="fine-grained token (Contents: Read and write)" autoComplete="off" /><p className="mt-[0.3rem] text-[0.72rem] text-[var(--ledger-soft)]">토큰과 마스터키는 저장하지 않습니다. 비공개 로그 저장소의 Contents 읽기·쓰기 권한이 필요합니다.</p></Field></div>
-            {previewPath ? <p className="afterroll-meta mt-[0.8rem] text-[0.72rem] text-[var(--ledger-soft)]">저장 위치: {previewPath}</p> : null}
+            <p className="afterroll-meta mt-[0.8rem] text-xs text-[var(--ledger-soft)]">Google 관리자 계정으로 저장합니다. 잠긴 로그의 마스터키는 비밀번호 복구용이며 서버에 전달하지 않습니다.</p>
+            {uploadedId ? <Link href={liveLogHref(uploadedId)} className="mt-[0.8rem] inline-block underline">저장한 로그 열기</Link> : null}
             {status ? <p className="mt-[0.8rem] whitespace-pre-wrap break-words text-[0.86rem] text-[var(--ledger-muted)]" role="status">{status}</p> : null}
             {hoveredImageSource ? (
               <div className="pointer-events-none fixed bottom-[1rem] right-[1rem] z-[110] w-[min(20rem,60vw)] rounded-[0.3rem] border border-[var(--atr-line)] bg-[rgba(251,252,253,0.98)] p-[0.3rem] shadow-[0_0.7rem_2rem_rgba(32,28,25,0.28)]">

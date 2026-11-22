@@ -38,6 +38,9 @@ firebase-debug.log
 
 # env files (can opt-in for committing if needed)
 .env*.local
+/worker/.dev.vars*
+!/worker/.dev.vars.example
+/worker/.wrangler/
 
 # 비밀번호 원본과 암호문은 공개 저장소에 커밋하지 않습니다.
 passwords.json

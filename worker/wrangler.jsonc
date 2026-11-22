@@ -1,0 +1,19 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "afterroll-archive",
+  "main": "index.mjs",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "vars": {
+    "SITE_ORIGIN": "https://flosnidor9.github.io",
+    "SITE_BASE_PATH": "/AfterTheRoll",
+    "GITHUB_REPOSITORY": "flosnidor9/Trpg-Logs"
+  },
+  "ratelimits": [
+    { "name": "READ_LIMITER", "namespace_id": "31001", "simple": { "limit": 600, "period": 60 } },
+    { "name": "WRITE_LIMITER", "namespace_id": "31002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "UPLOAD_LIMITER", "namespace_id": "31003", "simple": { "limit": 240, "period": 60 } }
+  ]
+}

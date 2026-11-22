@@ -8,7 +8,11 @@
     "build": "next build",
     "postbuild": "node scripts/encrypt-logs.mjs",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "worker:dev": "wrangler dev --config worker/wrangler.jsonc",
+    "worker:check": "wrangler deploy --dry-run --config worker/wrangler.jsonc",
+    "worker:deploy": "wrangler deploy --config worker/wrangler.jsonc",
+    "test:archive": "node --test tests/liveArchiveWorker.test.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -36,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "wrangler": "^4.166.0"
   }
 }

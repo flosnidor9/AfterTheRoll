@@ -1,6 +1,6 @@
 'use client';
 
-import Image from '@/components/ArchiveImage';
+import Image from '@/components/gallery/GalleryImage';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { GalleryAlbum, GalleryPhoto } from '@/lib/data/gallery';
