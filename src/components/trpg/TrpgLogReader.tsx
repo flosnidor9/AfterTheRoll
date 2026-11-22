@@ -654,13 +654,14 @@ export default function TrpgLogReader({ htmlUrl, htmlContent, sourceFormat, fall
       return replaySteps.map((step, replayStep): LogEntry => {
         const message = step.message;
         const speaker = String(message?.speaker ?? '');
-        const narrator = !message || replayMessageIsNarration(message, replay.settings);
+        const isAside = !!message && !replayMessageVisible(replay, message);
+        const narrator = !message || (!isAside && replayMessageIsNarration(message, replay.settings));
         return {
           id: step.id, speaker: narrator ? '' : speaker,
           avatarSrc: narrator ? null : replayMediaSource(message?.portrait, replay.assets, replayBaseUrl) || null,
           contentHtml: message ? replayMessageHtml(message, replay.assets, replayBaseUrl) : '',
           kind: message ? 'chat' : 'media', preserveLineBreaks: true,
-          isAside: !!message && !replayMessageVisible(replay, message), isWhisper: false,
+          isAside, isWhisper: false,
           isNarrator: narrator, replayStep, sceneOnly: !message,
         };
       });
