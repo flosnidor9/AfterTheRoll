@@ -29,6 +29,7 @@ export default function CinematicImage({ src, alt, onComplete }: Props) {
           alt={alt}
           fill
           sizes="100vw"
+          loading="eager"
           unoptimized
           className="object-contain"
           onLoad={() => { setStatus('ready'); onComplete(); }}

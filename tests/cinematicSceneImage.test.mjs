@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { getImageProps } from 'next/image.js';
 
 function imageHarness() {
   const hooks = [];
@@ -30,6 +31,16 @@ function imageHarness() {
   });
   return props => { cursor = 0; return testModule.exports.default(props).props; };
 }
+
+test('transparent and offscreen scene images request loading without waiting for viewport visibility', () => {
+  const render = imageHarness();
+  const props = render({
+    src: 'https://example.test/scene.png', alt: 'Scene', className: 'object-fill',
+    onLoaded() {}, onFailed() {},
+  });
+  // Resolve Next Image defaults too: omitting loading silently restores lazy loading.
+  assert.equal(getImageProps(props).props.loading, 'eager');
+});
 
 for (const extension of ['gif', 'apng']) {
   test(`${extension} retains the Next Image ref handlers across unrelated scene renders`, () => {

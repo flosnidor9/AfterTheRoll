@@ -102,7 +102,29 @@ export function replayMediaSource(value: unknown, assets: CinematicReplay['asset
 export function fieldFrame(event?: ReplayEvent) {
   const bounds = event?.bounds;
   if (!bounds || !Array.isArray(event?.objects) || ![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite) || bounds.width < 0 || bounds.height < 0) return null;
-  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2, width: Math.max(1, bounds.width), height: Math.max(1, bounds.height) };
+  const frame = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2, width: bounds.width, height: bounds.height };
+  if (bounds.width > 0 && bounds.height > 0) return frame;
+  // Hidden boards use a virtual frame around their objects, as in the portable player.
+  let left = frame.x, right = frame.x, top = frame.y, bottom = frame.y;
+  for (const object of event.objects) {
+    if (!['x', 'y', 'width', 'height', 'rotation'].every(key => Number.isFinite(object[key as keyof FieldObject])) || object.width < 0 || object.height < 0) continue;
+    const figure = object.kind === 'figure';
+    const centerX = object.x + object.width / 2;
+    const centerY = object.y + (figure ? object.width : object.height / 2);
+    const radians = object.rotation * Math.PI / 180;
+    const cos = Math.cos(radians), sin = Math.sin(radians);
+    for (const x of [-object.width / 2, object.width / 2]) {
+      for (const y of figure ? [-object.height, 0] : [-object.height / 2, object.height / 2]) {
+        const rotatedX = centerX + x * cos - y * sin;
+        const rotatedY = centerY + x * sin + y * cos;
+        left = Math.min(left, rotatedX); right = Math.max(right, rotatedX);
+        top = Math.min(top, rotatedY); bottom = Math.max(bottom, rotatedY);
+      }
+    }
+  }
+  if (bounds.width === 0) { frame.x = (left + right) / 2; frame.width = Math.max(1, right - left); }
+  if (bounds.height === 0) { frame.y = (top + bottom) / 2; frame.height = Math.max(1, bottom - top); }
+  return frame;
 }
 
 export function replayMessageVisible(replay: CinematicReplay, message: ReplayMessage): boolean {

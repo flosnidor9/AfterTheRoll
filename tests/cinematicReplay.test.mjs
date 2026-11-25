@@ -57,6 +57,26 @@ test('motion compaction retains the initial and final pose but never skips ident
   assert.equal(fieldFrame({ bounds: { width: 1200 }, objects: [] }), null);
 });
 
+test('a hidden board fits its objects instead of magnifying a one-unit frame', () => {
+  const fields = { bounds: { x: 0, y: 0, width: 0, height: 0 }, objects: [
+    { ...object, kind: 'screen-marker', x: -200, y: -100, width: 400, height: 200 },
+    { ...object, kind: 'screen-marker', x: 200, y: 100, width: 100, height: 100 },
+  ] };
+  assert.deepEqual(fieldFrame(fields), { x: 50, y: 50, width: 500, height: 300 });
+});
+
+test('hidden-board bounds account for rotation and bottom-anchored figures', () => {
+  const fields = { bounds: { x: 0, y: 0, width: 0, height: 0 }, objects: [
+    { ...object, x: 0, y: 0, width: 100, height: 200, rotation: 90 },
+  ] };
+  const frame = fieldFrame(fields);
+  assert.ok(Math.abs(frame.x - 125) < 1e-9);
+  assert.ok(Math.abs(frame.y - 75) < 1e-9);
+  assert.ok(Math.abs(frame.width - 250) < 1e-9);
+  assert.ok(Math.abs(frame.height - 150) < 1e-9);
+  assert.deepEqual(fieldFrame({ ...fields, bounds }), { x: 0, y: 0, width: 1200, height: 720 });
+});
+
 test('media references and rich text cannot inject scripts or unsafe URLs', () => {
   const assets = { image: { src: 'https://example.test/image.png' } };
   assert.equal(replayMediaSource('asset:image', assets), assets.image.src);

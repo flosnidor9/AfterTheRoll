@@ -22,5 +22,7 @@ export default memo(function CinematicSceneImage({ src, alt, className, onLoaded
   }, [src, onLoaded, onRatio]);
   const handleError = useCallback(() => onFailed(src), [src, onFailed]);
 
-  return <Image src={src} alt={alt} fill sizes="100vw" unoptimized className={className} onLoad={handleLoad} onError={handleError} />;
+  // Scene layers stay transparent until loaded and field objects may be offscreen.
+  // Request them immediately: viewport-based lazy loading cannot gate readiness.
+  return <Image src={src} alt={alt} fill sizes="100vw" loading="eager" unoptimized className={className} onLoad={handleLoad} onError={handleError} />;
 });

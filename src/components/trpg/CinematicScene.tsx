@@ -36,9 +36,10 @@ export default function CinematicScene({ scene, replay, baseUrl, onPendingChange
   const standaloneScale = foregroundSize && foregroundSize.width > 0 && foregroundSize.height > 0 ? Math.min(1, viewport.width * STANDALONE_FOREGROUND_FIT / (foregroundSize.width * BOARD_UNIT_REM), viewport.height * STANDALONE_FOREGROUND_FIT / (foregroundSize.height * BOARD_UNIT_REM)) : 1;
   const foreground = useMemo(() => activeFrame ? {
     x: -activeFrame.x, y: -activeFrame.y,
-    width: foregroundSize?.width ?? activeFrame.width, height: foregroundSize?.height ?? activeFrame.height,
-  } : foregroundSize && foregroundSize.width > 0 && foregroundSize.height > 0 ? { x: 0, y: 0, width: foregroundSize.width * standaloneScale, height: foregroundSize.height * standaloneScale } : null, [activeFrame, foregroundSize, standaloneScale]);
-  const sources = [scene.background, scene.foreground, ...validObjects.map(object => replayMediaSource(object.imageUrl, replay.assets, baseUrl))].filter(Boolean);
+    width: foregroundSize?.width ?? scene.fields!.bounds!.width, height: foregroundSize?.height ?? scene.fields!.bounds!.height,
+  } : foregroundSize && foregroundSize.width > 0 && foregroundSize.height > 0 ? { x: 0, y: 0, width: foregroundSize.width * standaloneScale, height: foregroundSize.height * standaloneScale } : null, [activeFrame, scene.fields, foregroundSize, standaloneScale]);
+  const showForeground = !foreground || (foreground.width > 0 && foreground.height > 0);
+  const sources = [scene.background, showForeground ? foregroundSource : '', ...validObjects.map(object => replayMediaSource(object.imageUrl, replay.assets, baseUrl))].filter(Boolean);
   const pending = sources.some(source => !loadedSources.has(source) && !failedSources.has(source));
   useEffect(() => { onPendingChange(pending); }, [pending, onPendingChange]);
 
@@ -73,7 +74,7 @@ export default function CinematicScene({ scene, replay, baseUrl, onPendingChange
   const boardLayers = useMemo(() => (
     <div className="absolute inset-0" style={{ transform: `scale(${fitScale})`, transformOrigin: '50% 50%' }}>
           <AnimatePresence initial={false}>
-            {foregroundSource && !failedSources.has(foregroundSource) && <motion.div key={foregroundSource} initial={{ opacity: 0 }} animate={{ opacity: loadedSources.has(foregroundSource) ? 1 : 0 }} exit={{ opacity: 0 }} transition={transition}
+            {showForeground && foregroundSource && !failedSources.has(foregroundSource) && <motion.div key={foregroundSource} initial={{ opacity: 0 }} animate={{ opacity: loadedSources.has(foregroundSource) ? 1 : 0 }} exit={{ opacity: 0 }} transition={transition}
               className={foreground ? 'absolute left-1/2 top-1/2' : 'absolute inset-[6%]'}
               style={foreground ? { width: `${foreground.width * BOARD_UNIT_REM}rem`, height: `${foreground.height * BOARD_UNIT_REM}rem`, marginLeft: `${(foreground.x - foreground.width / 2) * BOARD_UNIT_REM}rem`, marginTop: `${(foreground.y - foreground.height / 2) * BOARD_UNIT_REM}rem` } : undefined}>
               <CinematicSceneImage src={foregroundSource} alt={scene.foreground ? "현재 전경" : "현재 배경"} className={foreground ? 'object-fill' : 'object-contain'} onLoaded={loaded} onFailed={failed} />
@@ -94,7 +95,7 @@ export default function CinematicScene({ scene, replay, baseUrl, onPendingChange
             </AnimatePresence>
           </div>
         </div>
-  ), [fitScale, scene.foreground, foregroundSource, foreground, activeFrame, validObjects, failedSources, loadedSources, imageRatios, replay.assets, baseUrl, transition, loaded, failed, recordRatio]);
+  ), [fitScale, scene.foreground, foregroundSource, foreground, showForeground, activeFrame, validObjects, failedSources, loadedSources, imageRatios, replay.assets, baseUrl, transition, loaded, failed, recordRatio]);
 
   const rebase = () => {
     const points = [...gesture.current.points.values()];
